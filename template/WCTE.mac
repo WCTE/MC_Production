@@ -1,0 +1,51 @@
+# nuPRISMBeamTest WCTE macro with no visualization
+
+/run/verbose 1
+/tracking/verbose 0
+/hits/verbose 0
+
+/WCSim/WCgeom nuPRISMBeamTest_16cShort_mPMT ## this is 16c4r from CAD
+/WCSim/Geometry/RotateBarrelHalfTower true
+
+/WCSim/PMT/ReplicaPlacement false
+/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE.txt
+$wCDSmac/WCSim/Geometry/SetCDSFile $wcsimdir/data/Arm_for_Simulation_ASCII_V2.stl
+$wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
+
+/WCSim/Construct
+
+/WCSim/PMTQEMethod     SensitiveDetector_Only
+/WCSim/PMTCollEff on
+
+/WCSim/SavePi0 false
+
+/DAQ/Digitizer SKI
+/DAQ/Trigger NDigits
+
+/control/execute $wcsimdir/macros/daq.mac
+
+#/random/setSeeds 2 1
+/WCSim/random/seed $rngseed
+
+
+#/DarkRate/SetDarkRate 0 kHz   #Turn dark noise off
+#/DarkRate/SetDarkRate 4.2 kHz #This is the value for SKI set in SKDETSIM.
+/DarkRate/SetDarkMode 1
+/DarkRate/SetDarkHigh 100000
+/DarkRate/SetDarkLow 0
+/DarkRate/SetDarkWindow 4000
+
+/mygen/generator gps
+/gps/particle $ParticleName
+/gps/energy $ParticleKE MeV
+/gps/direction $ParticleDirx $ParticleDiry $ParticleDirz
+/gps/position $ParticlePosx $ParticlePosy $ParticlePosz cm
+
+/Tracking/fractionOpticalPhotonsToDraw 0.0
+
+/WCSimIO/RootFile $filename
+
+/WCSimIO/SaveRooTracker 0
+
+/run/beamOn $nevs
+#exit

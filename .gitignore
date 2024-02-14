@@ -1,0 +1,16 @@
+# directories
+log/
+mac/
+out/
+shell/
+pjdir/
+pjout/
+pjerr/
+.singularity/
+*sandbox/
+
+# sif image
+*.sif
+
+# pdf
+*.pdf
