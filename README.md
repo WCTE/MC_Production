@@ -1,5 +1,5 @@
 # MC_Production
-These scripts are intended to use in the WCTE MC production with with software container.
+These scripts are intended to use in the WCTE MC production with software container.
 
 ## Setup
 First clone this repository.
@@ -27,13 +27,14 @@ All available options are
 -s, --seed=<val>: RNG seed used in this script
 -c, --cds: use CDS in WCSim
 -k, --sukap: submit batch jobs on sukap
+-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account
 ```
 
 To run the shell scripts with singularity,
 ```
 # assume you have already run python3 createWCSimFiles.py which produced 
-# mac/wcsim_mu-_100MeV_0000.mac and shell/wcsim_mu-_100MeV_0000.sh
-singularity exec -B ./:/mnt softwarecontainer_main.sif bash /mnt/shell/wcsim_mu-_100MeV_0000.sh
+# mac/wcsim_mu-_100MeV_30cm_0000.mac and shell/wcsim_mu-_100MeV_30cm_0000.sh
+singularity exec -B ./:/mnt softwarecontainer_main.sif bash /mnt/shell/wcsim_mu-_100MeV_30cm_0000.sh
 ```
 The `-B` option binds the current directory to `/mnt` inside the container so you can access the files and write the outputs there. The output root file and log are located at `out/` and `log/`.
 
@@ -53,12 +54,12 @@ Two event display root macros are placed under `validation/`. They can be run wi
 
 ### EventDisplay.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_main.sif root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/wcsim_mu-_100MeV_\*[0-9\].root\"\)
+singularity exec -B ./:/mnt softwarecontainer_main.sif root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*[0-9\].root\"\)
 ```
-This reads the files `out/wcsim_mu-_100MeV_*[0-9].root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
+This reads the files `out/wcsim_mu-_100MeV_30cm_*[0-9].root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
 
 ### EventDisplay_Compare.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_main.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_\*[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_\*[0-9\].root\"\,\"mu-\"\)
+singularity exec -B ./:/mnt softwarecontainer_main.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_30cm_\*[0-9\].root\"\,\"mu-\"\)
 ```
 This reads two different sets of files, aggregates all events to produce PMT hit histograms and calculate the ratio between the two sets of histograms.

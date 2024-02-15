@@ -6,6 +6,9 @@ shell/
 pjdir/
 pjout/
 pjerr/
+sldir/
+slout/
+slerr/
 .singularity/
 *sandbox/
 

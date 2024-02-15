@@ -12,7 +12,7 @@ def usage():
     '''
     print ("Function to create mac, shell and batch job scripts for WCSim")
     print ("Usage:")
-    print ("createWCSimFiles.py [-h] [-p <particleName>][-e <KE>][-w <distance>][-n <events>][-f <files>][-s <seed>][-c][-k]")
+    print ("createWCSimFiles.py [-h] [-p <particleName>][-e <KE>][-w <distance>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
     print ("")
     print ("Options:")
     print ("-h, --help: prints help message")
@@ -24,6 +24,7 @@ def usage():
     print ("-s, --seed=<val>: RNG seed used in this script")
     print ("-c, --cds: use CDS in WCSim")
     print ("-k, --sukap: submit batch jobs on sukap")
+    print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
     print ("")
 
 def createWCSimFiles():
@@ -34,14 +35,11 @@ def createWCSimFiles():
     outdir = "out"
     logdir = "log"
     shelldir = "shell"
-    pjdir = "pjdir"
-    pjoutdir = "pjout"
-    pjerrdir = "pjerr"
     figdir = "fig"
 
     curdir = os.getcwd()
 
-    for dir in [macdir,outdir,logdir,shelldir,pjdir,pjoutdir,pjerrdir,figdir]:
+    for dir in [macdir,outdir,logdir,shelldir,figdir]:
         if (not os.path.exists(dir)):
             os.makedirs(dir)
 
@@ -59,17 +57,20 @@ def createWCSimFiles():
     ParticlePosx = 0
     ParticlePosy = -29
     radius = 319.2536/2
-    ParticlePosz= radius-30
+    wallD = 30.
+    ParticlePosz= radius-wallD
     nevs = 1000
     nfiles = 100
     useCDS = False
     submit_sukap_jobs = False
+    submit_cedar_jobs = False
+    rapaccount = ""
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hckp:e:w:n:f:s:",
+        opts, args = getopt.getopt(sys.argv[1:], "hckp:e:w:n:f:s:d:",
                                    ["help", "pid=", "ke=", 
                                     "wall=", "nevs=", "nfiles=",
-                                    "seed=", "cds", "sukap"])
+                                    "seed=", "cds", "sukap","cedar="])
     except getopt.GetoptError as err:
         print (str(err))
         usage()
@@ -84,7 +85,8 @@ def createWCSimFiles():
         if (opt in ("-e", "--ke")):
             ParticleKE = float(val.strip())
         if (opt in ("-w", "--wall")):
-            ParticlePosz= radius - float(val.strip())
+            wallD = float(val.strip())
+            ParticlePosz= radius - wallD
         if (opt in ("-n", "--nevs")):
             nevs = int(val.strip())
         if (opt in ("-f", "--nfiles")):
@@ -95,24 +97,29 @@ def createWCSimFiles():
             useCDS = True
         if (opt in ("-k", "--sukap")):
             submit_sukap_jobs = True
+        if (opt in ("-d", "--cedar")):
+            submit_cedar_jobs = True
+            rapaccount = val.strip()
 
     wCDSstring = "_wCDS" if useCDS else ""
     wCDSmac = "" if useCDS else "#"
     random.seed(rngseed)
+
+    configString = "%s_%s_%.0fMeV_%icm_" % (wCDSstring,ParticleName,ParticleKE,int(wallD))
 
     print ("Creating mac files for WCSim")
     for i in range(nfiles):
         fi = open("template/WCTE.mac",'r')
         macLines = fi.read()
         macTemplate = string.Template(macLines)
-        macFile = "%s/wcsim%s_%s_%.0fMeV_%04i.mac" % (macdir,wCDSstring,ParticleName,ParticleKE,i)
+        macFile = "%s/wcsim%s%04i.mac" % (macdir,configString,i)
         fo = open(macFile, 'w')
         macseed = random.randrange(int(1e9))
         fo.write(macTemplate.substitute(wcsimdir=wcsimdir, rngseed=macseed, wCDSmac=wCDSmac, 
                                         ParticleName=ParticleName,ParticleKE=ParticleKE,
                                         ParticleDirx=ParticleDirx,ParticleDiry=ParticleDiry,ParticleDirz=ParticleDirz,
                                         ParticlePosx=ParticlePosx,ParticlePosy=ParticlePosy,ParticlePosz=ParticlePosz,
-                                        nevs=nevs,filename="%s/%s/wcsim%s_%s_%.0fMeV_%04i.root" % (mntdir,outdir,wCDSstring,ParticleName,ParticleKE,i)))
+                                        nevs=nevs,filename="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)))
         fo.close()
         fi.close()
 
@@ -121,35 +128,76 @@ def createWCSimFiles():
         fi = open("template/run_wcsim.sh",'r')
         shLines = fi.read()
         shTemplate = string.Template(shLines)
-        shFile = "%s/wcsim%s_%s_%.0fMeV_%04i.sh" % (shelldir,wCDSstring,ParticleName,ParticleKE,i)
+        shFile = "%s/wcsim%s%04i.sh" % (shelldir,configString,i)
         fo = open(shFile, 'w')
         fo.write(shTemplate.substitute(geant4dir=geant4dir, wcsim_build_dir=wcsim_build_dir,
-                                   macfile="%s/%s/wcsim%s_%s_%.0fMeV_%04i.mac" % (mntdir,macdir,wCDSstring,ParticleName,ParticleKE,i),
+                                   macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
                                    tuningfile="%s/macros/tuning_parameters.mac" % (wcsimdir),
-                                   logfile="%s/%s/wcsim%s_%s_%.0fMeV_%04i.log" % (mntdir,logdir,wCDSstring,ParticleName,ParticleKE,i)))
+                                   logfile="%s/%s/wcsim%s%04i.log" % (mntdir,logdir,configString,i)))
         fo.close()
         fi.close()
 
     if submit_sukap_jobs :
+        pjdir = "pjdir"
+        pjoutdir = "pjout"
+        pjerrdir = "pjerr"
+        for dir in [pjdir,pjoutdir,pjerrdir]:
+            if (not os.path.exists(dir)):
+                os.makedirs(dir)
         siffile = "wcsim_sandbox/"
         print ("Creating pjsub scripts for WCSim")
         for i in range(nfiles):
             fi = open("template/pjsub_wcsim.sh",'r')
             pjLines = fi.read()
             pjTemplate = string.Template(pjLines)
-            pjFile = "%s/pjsub%s_%s_%.0fMeV_%04i.sh" % (pjdir,wCDSstring,ParticleName,ParticleKE,i)
+            pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
             fo = open(pjFile, 'w')
             fo.write(pjTemplate.substitute(curdir=curdir, mntdir=mntdir, siffile=siffile,
-                                        shfile="%s/%s/wcsim%s_%s_%.0fMeV_%04i.sh" % (mntdir,shelldir,wCDSstring,ParticleName,ParticleKE,i)))
+                                           shfile="%s/%s/wcsim%s%04i.sh" % (mntdir,shelldir,configString,i)))
             fo.close()
             fi.close()
 
         print ("Submitting pjsub jobs on sukap")
         for i in range(nfiles):
-            pjFile = "%s/pjsub%s_%s_%.0fMeV_%04i.sh" % (pjdir,wCDSstring,ParticleName,ParticleKE,i)
-            pjout = "%s/pjsub%s_%s_%.0fMeV_%04i.%%j.out" % (pjoutdir,wCDSstring,ParticleName,ParticleKE,i)
-            pjerr = "%s/pjsub%s_%s_%.0fMeV_%04i.%%j.err" % (pjerrdir,wCDSstring,ParticleName,ParticleKE,i)
+            pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
+            pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
+            pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
             com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
+                                stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                close_fds=True)
+            res, err = com.communicate()
+            if (len(err) > 0):
+                print (err)
+                sys.exit(1)
+            else:
+                print (res)
+
+    if submit_cedar_jobs :
+        sldir = "sldir"
+        sloutdir = "slout"
+        slerrdir = "slerr"
+        for dir in [sldir,sloutdir,slerrdir]:
+            if (not os.path.exists(dir)):
+                os.makedirs(dir)
+        siffile = "softwarecontainer_main.sif"
+        print ("Creating slurm scripts for WCSim")
+        for i in range(nfiles):
+            fi = open("template/slurm_wcsim.sh",'r')
+            slLines = fi.read()
+            slTemplate = string.Template(slLines)
+            slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
+            slout = "%s/slurm%s%04i" % (sloutdir,configString,i)
+            slerr = "%s/slurm%s%04i" % (slerrdir,configString,i)
+            fo = open(slFile, 'w')
+            fo.write(slTemplate.substitute(account=rapaccount, curdir=curdir, mntdir=mntdir, siffile=siffile, sout=slout, serr=slerr,
+                                           shfile="%s/%s/wcsim%s%04i.sh" % (mntdir,shelldir,configString,i)))
+            fo.close()
+            fi.close()
+
+        print ("Submitting pjsub jobs on sukap")
+        for i in range(nfiles):
+            slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
+            com = subprocess.Popen("sbatch %s" % (slFile), shell=True, 
                                 stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
                                 close_fds=True)
             res, err = com.communicate()
