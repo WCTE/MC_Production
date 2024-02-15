@@ -49,6 +49,13 @@ python3 createWCSimFiles.py -k
 ```
 This produces the batch job scripts under `pjdir`, and batch job logs (if any) are produced at `pjout/` and `pjerr/`. The `-u` option is used with singularity to bypass the binding issue.
 
+### Batch job submission on cedar
+You need to run `createWCSimFiles.py` with `-d <account>`. If you do not know which RAP account is usable, follow the [instructions](https://docs.alliancecan.ca/wiki/Running_jobs#Accounts_and_projects) to check.
+```
+python3 createWCSimFiles.py -d <account>
+```
+This produces the batch job scripts under `sldir`, and batch job logs (if any) are produced at `slout/` and `slerr/`. 
+
 ## Validation
 Two event display root macros are placed under `validation/`. They can be run with the container.
 
