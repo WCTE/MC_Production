@@ -127,8 +127,12 @@ void EventDisplay(const char * fname)
         wcsimrootevent = wcsimrootsuperevent->GetTrigger(0);
 
         std::vector<double> triggerInfo = wcsimrootevent->GetTriggerInfo();
-        double triggerShift = triggerInfo[1];
-        double triggerTime = triggerInfo[2];
+        double triggerShift=0, triggerTime=0;
+        if(triggerInfo.size()>=3)
+        {
+            triggerShift = triggerInfo[1];
+            triggerTime = triggerInfo[2];
+        }
 
         int nhits = wcsimrootevent->GetNcherenkovdigihits(); 
 
