@@ -12,13 +12,13 @@ def usage():
     '''
     print ("Function to create mac, shell and batch job scripts for WCSim")
     print ("Usage:")
-    print ("createWCSimFiles.py [-h] [-p <particleName>][-e <KE>][-w <distance>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
+    print ("createWCSimFiles.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
     print ("")
     print ("Options:")
     print ("-h, --help: prints help message")
     print ("-p, --pid=<name>: particle name (mu-, e-, etc.)")
-    print ("-e, --ke=<val>: particle KE in MeV")
-    print ("-w, --wall=<val>: distance from vertex to blacksheet behind in cm")
+    print ("-b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm")
+    print ("-u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV")
     print ("-n, --nevs=<val>: number of events per file")
     print ("-f, --nfiles=<val>: numbe of files to be generated")
     print ("-s, --seed=<val>: RNG seed used in this script")
@@ -50,15 +50,10 @@ def createWCSimFiles():
     mntdir="/mnt"
     rngseed = 20240213
     ParticleName = "mu-"
-    ParticleKE = 100
-    ParticleDirx = 0
-    ParticleDiry = 0
-    ParticleDirz = -1
-    ParticlePosx = 0
-    ParticlePosy = -29
-    radius = 319.2536/2
-    wallD = 30.
-    ParticlePosz= radius-wallD
+
+    TankRadius = 319.2536/2
+    TankHalfz = 283.0845/2
+
     nevs = 1000
     nfiles = 100
     useCDS = False
@@ -66,10 +61,24 @@ def createWCSimFiles():
     submit_cedar_jobs = False
     rapaccount = ""
 
+    useBeam = True
+    ParticleKE = 100
+    ParticleDirx = 0
+    ParticleDiry = 0
+    ParticleDirz = -1
+    ParticlePosx = 0
+    ParticlePosy = -29
+    wallD = 30.
+    ParticlePosz= TankRadius-wallD
+
+    useUniform = False
+    ParticleKELow = 0.
+    ParticleKEHigh = 2000.
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hckp:e:w:n:f:s:d:",
-                                   ["help", "pid=", "ke=", 
-                                    "wall=", "nevs=", "nfiles=",
+        opts, args = getopt.getopt(sys.argv[1:], "hckp:n:f:s:d:b:u:",
+                                   ["help", "pid=", "beam=", "uniform=", 
+                                    "nevs=", "nfiles=",
                                     "seed=", "cds", "sukap","cedar="])
     except getopt.GetoptError as err:
         print (str(err))
@@ -82,11 +91,19 @@ def createWCSimFiles():
             sys.exit()
         if (opt in ("-p", "--pid")):
             ParticleName = val.strip()
-        if (opt in ("-e", "--ke")):
-            ParticleKE = float(val.strip())
-        if (opt in ("-w", "--wall")):
-            wallD = float(val.strip())
-            ParticlePosz= radius - wallD
+        if (opt in ("-b", "--beam")):
+            useBeam = True
+            useUniform = False
+            vals = val.strip().split(",")
+            ParticleKE = float(vals[0])
+            wallD = float(vals[1])
+            ParticlePosz = TankRadius - wallD
+        if (opt in ("-u", "--uniform")):
+            useBeam = False
+            useUniform = True
+            vals = val.strip().split(",")
+            ParticleKELow = float(vals[0])
+            ParticleKEHigh = float(vals[1])
         if (opt in ("-n", "--nevs")):
             nevs = int(val.strip())
         if (opt in ("-f", "--nfiles")):
@@ -105,7 +122,13 @@ def createWCSimFiles():
     wCDSmac = "" if useCDS else "#"
     random.seed(rngseed)
 
-    configString = "%s_%s_%.0fMeV_%icm_" % (wCDSstring,ParticleName,ParticleKE,int(wallD))
+    beamstring = "Beam_%.0fMeV_%icm_" % (ParticleKE,int(wallD)) if useBeam else ""
+    beammac = "" if useBeam else "#"
+
+    uniformstring = "Uniform_%.0f_%.0fMeV_" % (ParticleKELow,ParticleKEHigh) if useUniform else ""
+    uniformmac = "" if useUniform else "#"
+
+    configString = "%s_%s_%s%s" % (wCDSstring,ParticleName,beamstring,uniformstring)
 
     print ("Creating mac files for WCSim")
     for i in range(nfiles):
@@ -116,9 +139,12 @@ def createWCSimFiles():
         fo = open(macFile, 'w')
         macseed = random.randrange(int(1e9))
         fo.write(macTemplate.substitute(wcsimdir=wcsimdir, rngseed=macseed, wCDSmac=wCDSmac, 
+                                        beammac=beammac,uniformmac=uniformmac,
                                         ParticleName=ParticleName,ParticleKE=ParticleKE,
                                         ParticleDirx=ParticleDirx,ParticleDiry=ParticleDiry,ParticleDirz=ParticleDirz,
                                         ParticlePosx=ParticlePosx,ParticlePosy=ParticlePosy,ParticlePosz=ParticlePosz,
+                                        ParticleKELow=ParticleKELow,ParticleKEHigh=ParticleKEHigh, 
+                                        rmac=TankRadius, zmac=TankHalfz,
                                         nevs=nevs,filename="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)))
         fo.close()
         fi.close()

@@ -37,9 +37,20 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 
 /mygen/generator gps
 /gps/particle $ParticleName
-/gps/energy $ParticleKE MeV
-/gps/direction $ParticleDirx $ParticleDiry $ParticleDirz
-/gps/position $ParticlePosx $ParticlePosy $ParticlePosz cm
+$beammac/gps/energy $ParticleKE MeV
+$beammac/gps/direction $ParticleDirx $ParticleDiry $ParticleDirz
+$beammac/gps/position $ParticlePosx $ParticlePosy $ParticlePosz cm
+$uniformmac/gps/ene/type       Lin
+$uniformmac/gps/ene/intercept  1
+$uniformmac/gps/ene/min        $ParticleKELow MeV
+$uniformmac/gps/ene/max        $ParticleKEHigh MeV
+$uniformmac/gps/ang/type       iso
+$uniformmac/gps/pos/type       Volume
+$uniformmac/gps/pos/shape      Cylinder
+$uniformmac/gps/pos/rot1       1 0 0
+$uniformmac/gps/pos/rot2       0 0 1
+$uniformmac/gps/pos/radius     $rmac mm
+$uniformmac/gps/pos/halfz      $zmac mm
 
 /Tracking/fractionOpticalPhotonsToDraw 0.0
 
