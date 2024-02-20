@@ -70,3 +70,15 @@ This reads the files `out/wcsim_mu-_100MeV_30cm_*[0-9].root` and aggregates all 
 singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_30cm_\*[0-9\].root\"\,\"mu-\"\)
 ```
 This reads two different sets of files, aggregates all events to produce PMT hit histograms and calculate the ratio between the two sets of histograms.
+
+### VertexDistribution.c
+```
+singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*[0-9\].root\"\)
+```
+This plots the vertex distribution of all the events.
+
+### EventDisplay_SingleEvent.c
+```
+singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*[0-9\].root\", evtID\)
+```
+This produces event display for the `evtID`-th event.
