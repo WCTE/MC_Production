@@ -49,8 +49,8 @@ $uniformmac/gps/pos/type       Volume
 $uniformmac/gps/pos/shape      Cylinder
 $uniformmac/gps/pos/rot1       1 0 0
 $uniformmac/gps/pos/rot2       0 0 1
-$uniformmac/gps/pos/radius     $rmac mm
-$uniformmac/gps/pos/halfz      $zmac mm
+$uniformmac/gps/pos/radius     $rmac cm
+$uniformmac/gps/pos/halfz      $zmac cm
 
 /Tracking/fractionOpticalPhotonsToDraw 0.0
 
