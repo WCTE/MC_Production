@@ -20,7 +20,8 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 /WCSim/SavePi0 false
 
 /DAQ/Digitizer SKI
-/DAQ/Trigger NDigits
+#/DAQ/Trigger NDigits
+/DAQ/Trigger NoTrigger
 
 /control/execute $wcsimdir/macros/daq.mac
 
