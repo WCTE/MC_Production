@@ -128,7 +128,7 @@ void EventDisplay(const char * fname)
 
         std::vector<double> triggerInfo = wcsimrootevent->GetTriggerInfo();
         double triggerShift=0, triggerTime=0;
-        if(triggerInfo.size()>=3)
+        if(wcsimrootevent->GetTriggerType()!=kTriggerNoTrig && triggerInfo.size()>=3)
         {
             triggerShift = triggerInfo[1];
             triggerTime = triggerInfo[2];
