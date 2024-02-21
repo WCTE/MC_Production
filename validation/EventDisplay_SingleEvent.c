@@ -224,17 +224,17 @@ void EventDisplay_SingleEvent(const char * fname, int evtID)
     TMarker m2(evtx,evty,29);
     m2.SetMarkerColor(kBlack);
     m2.Draw();
-    c1->SaveAs(Form("/mnt/fig/%sdisplay.pdf",prefix.c_str()));
+    c1->SaveAs(Form("/mnt/fig/%sdisplay_%i.pdf",prefix.c_str(),evtID));
 
     hist_timetof->GetXaxis()->SetTitle("Digi Time (ns)");
     hist_timetof_true->GetXaxis()->SetTitle("Raw Time (ns)");
 
     hist_timetof->Draw("hist");
-    c1->SaveAs(Form("/mnt/fig/%stimetof.pdf",prefix.c_str()));
+    c1->SaveAs(Form("/mnt/fig/%stimetof_%i.pdf",prefix.c_str(),evtID));
 
     hist_timetof_true->Draw("hist");
     //c1->SetLogy();
-    c1->SaveAs(Form("/mnt/fig/%stimetof_true.pdf",prefix.c_str()));
+    c1->SaveAs(Form("/mnt/fig/%stimetof_true_%i.pdf",prefix.c_str(),evtID));
 
     f->Close();
     t->Reset();
