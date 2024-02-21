@@ -48,6 +48,10 @@ def createWCSimFiles():
     geant4dir="/opt/geant4"
     wcsim_build_dir="/opt/WCSim/build"
     mntdir="/mnt"
+
+    sandbox = "wcsim_sandbox/"
+    siffile = "softwarecontainer_main.sif"
+
     rngseed = 20240213
     ParticleName = "mu-"
 
@@ -170,7 +174,6 @@ def createWCSimFiles():
         for dir in [pjdir,pjoutdir,pjerrdir]:
             if (not os.path.exists(dir)):
                 os.makedirs(dir)
-        siffile = "wcsim_sandbox/"
         print ("Creating pjsub scripts for WCSim")
         for i in range(nfiles):
             fi = open("template/pjsub_wcsim.sh",'r')
@@ -178,7 +181,7 @@ def createWCSimFiles():
             pjTemplate = string.Template(pjLines)
             pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
             fo = open(pjFile, 'w')
-            fo.write(pjTemplate.substitute(curdir=curdir, mntdir=mntdir, siffile=siffile,
+            fo.write(pjTemplate.substitute(curdir=curdir, mntdir=mntdir, siffile=sandbox,
                                            shfile="%s/%s/wcsim%s%04i.sh" % (mntdir,shelldir,configString,i)))
             fo.close()
             fi.close()
@@ -205,7 +208,6 @@ def createWCSimFiles():
         for dir in [sldir,sloutdir,slerrdir]:
             if (not os.path.exists(dir)):
                 os.makedirs(dir)
-        siffile = "softwarecontainer_main.sif"
         print ("Creating slurm scripts for WCSim")
         for i in range(nfiles):
             fi = open("template/slurm_wcsim.sh",'r')

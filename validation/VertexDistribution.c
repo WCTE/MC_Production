@@ -28,9 +28,9 @@ void VertexDistribution(const char * fname)
     {   
         prefix = prefix.substr(0,prefix.find_last_of("*"));
     }
-    if (prefix.find_last_of(".root")!=std::string::npos) 
+    if (prefix.substr(prefix.length()-5)==".root") 
     {   
-        prefix = prefix.substr(0,prefix.find_last_of(".root")-4);
+        prefix = prefix.substr(0,prefix.length()-5);
     }
     if (prefix.find_last_of("_")!=prefix.length()-1) prefix += ("_");
     std::cout<<"prefix = "<<prefix<<std::endl;
