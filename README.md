@@ -34,14 +34,14 @@ To run the shell scripts with singularity,
 ```
 # assume you have already run python3 createWCSimFiles.py -b 100,30 which produced 
 # mac/wcsim_mu-_Beam_100MeV_30cm_0000.mac and shell/wcsim_mu-_Beam_100MeV_30cm_0000.sh
-singularity exec -B ./:/mnt softwarecontainer_v1.sif bash /mnt/shell/wcsim_mu-_Beam_100MeV_30cm_0000.sh
+singularity exec -B ./:/mnt softwarecontainer_v1.2.sif bash /mnt/shell/wcsim_mu-_Beam_100MeV_30cm_0000.sh
 ```
 The `-B` option binds the current directory to `/mnt` inside the container so you can access the files and write the outputs there. The output root file and log are located at `out/` and `log/`.
 
 ### Batch job submission on sukap
 To submit batch jobs on sukap, you first need to create a sandbox
 ```
-singularity build --sandbox wcsim_sandbox softwarecontainer_v1.sif
+singularity build --sandbox wcsim_sandbox softwarecontainer_v1.2.sif
 ```
 Then you can run `createWCSimFiles.py` with `-k`
 ```
@@ -61,24 +61,24 @@ Two event display root macros are placed under `validation/`. They can be run wi
 
 ### EventDisplay.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
+singularity exec -B ./:/mnt softwarecontainer_v1.2.sif root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
 ```
 This reads the files `out/wcsim_mu-_100MeV_30cm_*[0-9].root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
 
 ### EventDisplay_Compare.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_30cm_\*\[0-9\].root\"\,\"mu-\"\)
+singularity exec -B ./:/mnt softwarecontainer_v1.2.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_30cm_\*\[0-9\].root\"\,\"mu-\"\)
 ```
 This reads two different sets of files, aggregates all events to produce PMT hit histograms and calculate the ratio between the two sets of histograms.
 
 ### VertexDistribution.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
+singularity exec -B ./:/mnt softwarecontainer_v1.2.sif root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
 ```
 This plots the vertex distribution of all the events.
 
 ### EventDisplay_SingleEvent.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.sif root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\", evtID\)
+singularity exec -B ./:/mnt softwarecontainer_v1.2.sif root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\", evtID\)
 ```
 This produces event display for the `evtID`-th event.

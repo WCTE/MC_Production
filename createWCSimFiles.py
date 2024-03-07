@@ -50,7 +50,7 @@ def createWCSimFiles():
     mntdir="/mnt"
 
     sandbox = "wcsim_sandbox/"
-    siffile = "softwarecontainer_main.sif"
+    siffile = "softwarecontainer_v1.2.sif"
 
     rngseed = 20240213
     ParticleName = "mu-"
@@ -188,18 +188,19 @@ def createWCSimFiles():
 
         print ("Submitting pjsub jobs on sukap")
         for i in range(nfiles):
-            pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
-            pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
-            pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
-            com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
-                                stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                close_fds=True)
-            res, err = com.communicate()
-            if (len(err) > 0):
-                print (err)
-                sys.exit(1)
-            else:
-                print (res)
+            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
+                pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
+                pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
+                pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
+                com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
+                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    close_fds=True)
+                res, err = com.communicate()
+                if (len(err) > 0):
+                    print (err)
+                    sys.exit(1)
+                else:
+                    print (res)
 
     if submit_cedar_jobs :
         sldir = "sldir"
@@ -222,18 +223,19 @@ def createWCSimFiles():
             fo.close()
             fi.close()
 
-        print ("Submitting pjsub jobs on sukap")
+        print ("Submitting slurm jobs on cedar")
         for i in range(nfiles):
-            slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
-            com = subprocess.Popen("sbatch %s" % (slFile), shell=True, 
-                                stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                close_fds=True)
-            res, err = com.communicate()
-            if (len(err) > 0):
-                print (err)
-                sys.exit(1)
-            else:
-                print (res)
+            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
+                slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
+                com = subprocess.Popen("sbatch %s" % (slFile), shell=True, 
+                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    close_fds=True)
+                res, err = com.communicate()
+                if (len(err) > 0):
+                    print (err)
+                    sys.exit(1)
+                else:
+                    print (res)
 
 
 if __name__ == '__main__':
