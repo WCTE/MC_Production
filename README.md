@@ -82,3 +82,24 @@ This plots the vertex distribution of all the events.
 singularity exec -B ./:/mnt softwarecontainer_v1.2.sif root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\", evtID\)
 ```
 This produces event display for the `evtID`-th event.
+
+## [DataTools](https://github.com/WatChMaL/DataTools)
+[WatChMaL](https://github.com/WatChMaL) provides a python package to convert WCSim root output into numpy array.
+```
+git clone -b wcsim_v1.12.9 https://github.com/kmtsui/DataTools/
+singularity shell -B ./:/mnt softwarecontainer_v1.2.sif
+source /opt/WCSim/build/this_wcsim.sh
+cd /mnt/DataTools
+export DATATOOLS=`pwd`
+export PYTHONPATH=$DATATOOLS:$PYTHONPATH
+python $DATATOOLS/root_utils/event_dump.py root_file -d out_dir # reads root_file and produces .npz file in out_dir
+# Geometry file, only need one 
+python $DATATOOLS/root_utils/full_geo_dump.py root_file geo_file_name.npz
+```
+To read the .npz file in python,
+```
+import numpy as np
+npz_file = np.load(file_name, allow_pickle=True)
+# check $DATATOOLS/root_utils/event_dump.py, root_file_utils.py for availale variables
+hit_time = npz_file['digi_hit_time'] # this gets the pmt digi hit time
+```
