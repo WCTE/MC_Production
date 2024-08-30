@@ -186,21 +186,83 @@ def createWCSimFiles():
             fo.close()
             fi.close()
 
-        print ("Submitting pjsub jobs on sukap")
-        for i in range(nfiles):
-            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
-                pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
-                pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
-                pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
-                com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
+        allFilesOK = False
+
+        while not allFilesOK:
+
+            job_id = []
+
+            print ("Submitting pjsub jobs on sukap")
+            for i in range(nfiles):
+                if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
+                    # wait until job count is small enough
+                    while True:
+                        com = subprocess.Popen("pjstat | wc -l" , shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                        res, err = com.communicate()
+                        queueCount = int(res)
+                        if queueCount < 300:
+                            break
+                        time.sleep(10)
+
+                    pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
+                    pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
+                    pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
+
+                    # repeatedly submit job until success
+                    while True:
+                        com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
+                                            stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                            close_fds=True)
+                        res, err = com.communicate()
+                        if (len(err) == 0):
+                            print (res)
+                            job_id.append([int(res.split()[-2]),i])
+                            break
+                        print (err)
+                        time.sleep(1)
+            
+            allFilesOK = True
+            for i in range(len(job_id)):
+                # check if a job is completed
+                while True:
+                    com = subprocess.Popen("pjstat %i | wc -l" % job_id[i][0], shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                    res, err = com.communicate()
+                    # Remove in valid files
+                    if int(res)==0:
+                        com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/RemoveInvalidFile.c\(\\\"%s/%s/wcsim%s%04i.root\\\",%i\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString,job_id[i][1],nevs), shell=True, 
+                                            stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                            close_fds=True)
+                        res, err = com.communicate()
+                        print (res)
+                        if (len(err)>0):
+                            print(err)
+                            allFilesOK = False
+                        break
+                    time.sleep(10)
+                    print ("sleep for 10s")
+                    
+        # Make validation plots
+        if useBeam:
+            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
                                     stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
                                     close_fds=True)
-                res, err = com.communicate()
-                if (len(err) > 0):
-                    print (err)
-                    sys.exit(1)
-                else:
-                    print (res)
+            res, err = com.communicate()
+            if (len(err)>0):
+                print (err)
+                sys.exit(1)
+            else:
+                print (res)
+
+        else:
+            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/VertexDistribution.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
+                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    close_fds=True)
+            res, err = com.communicate()
+            if (len(err)>0):
+                print (err)
+                sys.exit(1)
+            else:
+                print (res)
 
     if submit_cedar_jobs :
         sldir = "sldir"
