@@ -69,10 +69,12 @@ void VertexDistribution(const char * fname)
             if (fabs(pmt.GetOrientation(1))>0.5) max_r = sqrt(pos[0]*pos[0]+pos[2]*pos[2]);
     }
 
-    TH3D* hist_vertices = new TH3D("Vertices","Vertices",100,-max_r,max_r,100,-max_r,max_r,100,-max_z,max_z);
-    TH2D* hist_vertices_xy = new TH2D("VerticesXY","VerticesXY",100,-max_r*1.1,max_r*1.1,100,-max_r*1.1,max_r*1.1);
-    TH2D* hist_vertices_yz = new TH2D("VerticesYZ","VerticesYZ",100,-max_r*1.1,max_r*1.1,100,-max_z*1.1,max_z*1.1);
-    TH2D* hist_vertices_zx = new TH2D("VerticesZX","VerticesZX",100,-max_z*1.1,max_z*1.1,100,-max_r*1.1,max_r*1.1);
+    int nBins = 150;
+
+    TH3D* hist_vertices = new TH3D("Vertices","Vertices",nBins,-max_r*1.1,max_r*1.1,nBins,-max_r*1.1,max_r*1.1,nBins,-max_z*1.1,max_z*1.1);
+    TH2D* hist_vertices_xy = new TH2D("VerticesXY","VerticesXY",nBins,-max_r*1.1,max_r*1.1,nBins,-max_r*1.1,max_r*1.1);
+    TH2D* hist_vertices_yz = new TH2D("VerticesYZ","VerticesYZ",nBins,-max_r*1.1,max_r*1.1,nBins,-max_z*1.1,max_z*1.1);
+    TH2D* hist_vertices_zx = new TH2D("VerticesZX","VerticesZX",nBins,-max_z*1.1,max_z*1.1,nBins,-max_r*1.1,max_r*1.1);
     for (long int nev=0;nev<t->GetEntries();nev++)
     {
         if (nev%(t->GetEntries()/100)==0) std::cout<<"Running "<<nev<<"-th event of total "<<t->GetEntries()<<" events"<<std::endl;
