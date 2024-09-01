@@ -22,7 +22,7 @@ def usage():
     print ("-n, --nevs=<val>: number of events per file")
     print ("-f, --nfiles=<val>: numbe of files to be generated")
     print ("-s, --seed=<val>: RNG seed used in this script")
-    print ("-c, --cds: use CDS in WCSim")
+    print ("-c, --cds: disable CDS in WCSim")
     print ("-k, --sukap: submit batch jobs on sukap")
     print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
     print ("")
@@ -50,17 +50,17 @@ def createWCSimFiles():
     mntdir="/mnt"
 
     sandbox = "wcsim_sandbox/"
-    siffile = "softwarecontainer_v1.2.sif"
+    siffile = "softwarecontainer_v1.3.1.sif"
 
-    rngseed = 20240213
+    rngseed = 20240901
     ParticleName = "mu-"
 
-    TankRadius = 319.2536/2
-    TankHalfz = 283.0845/2
+    TankRadius = 307.5926/2
+    TankHalfz = 271.4235/2
 
     nevs = 1000
     nfiles = 100
-    useCDS = False
+    useCDS = True
     submit_sukap_jobs = False
     submit_cedar_jobs = False
     rapaccount = ""
@@ -69,11 +69,11 @@ def createWCSimFiles():
     ParticleKE = 100
     ParticleDirx = 0
     ParticleDiry = 0
-    ParticleDirz = -1
+    ParticleDirz = 1
     ParticlePosx = 0
-    ParticlePosy = -29
-    wallD = 30.
-    ParticlePosz= TankRadius-wallD
+    ParticlePosy = -42.47625
+    wallD = 15.
+    ParticlePosz= -(TankRadius-wallD)
 
     useUniform = False
     ParticleKELow = 0.
@@ -101,7 +101,7 @@ def createWCSimFiles():
             vals = val.strip().split(",")
             ParticleKE = float(vals[0])
             wallD = float(vals[1])
-            ParticlePosz = TankRadius - wallD
+            ParticlePosz = -(TankRadius - wallD)
         if (opt in ("-u", "--uniform")):
             useBeam = False
             useUniform = True
@@ -115,7 +115,7 @@ def createWCSimFiles():
         if (opt in ("-s", "--seed")):
             rngseed = int(val.strip())
         if (opt in ("-c", "--cds")):
-            useCDS = True
+            useCDS = False
         if (opt in ("-k", "--sukap")):
             submit_sukap_jobs = True
         if (opt in ("-d", "--cedar")):
@@ -152,6 +152,14 @@ def createWCSimFiles():
                                         nevs=nevs,filename="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)))
         fo.close()
         fi.close()
+        fi = open("template/tuning_parameters.mac",'r')
+        macLines = fi.read()
+        macTemplate = string.Template(macLines)
+        macFile = "%s/tuning_parameters%s%04i.mac" % (macdir,configString,i)
+        fo = open(macFile, 'w')
+        fo.write(macTemplate.substitute(wcsimdir=wcsimdir))
+        fo.close()
+        fi.close()
 
     print ("Creating shell scripts for WCSim")
     for i in range(nfiles):
@@ -162,7 +170,7 @@ def createWCSimFiles():
         fo = open(shFile, 'w')
         fo.write(shTemplate.substitute(geant4dir=geant4dir, wcsim_build_dir=wcsim_build_dir,
                                    macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
-                                   tuningfile="%s/macros/tuning_parameters.mac" % (wcsimdir),
+                                   tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (mntdir,macdir,configString,i),
                                    logfile="%s/%s/wcsim%s%04i.log" % (mntdir,logdir,configString,i)))
         fo.close()
         fi.close()
