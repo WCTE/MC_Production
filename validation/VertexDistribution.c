@@ -32,7 +32,11 @@ void VertexDistribution(const char * fname)
     {   
         prefix = prefix.substr(0,prefix.length()-5);
     }
-    if (prefix.find_last_of("_")!=prefix.length()-1) prefix += ("_");
+    if (prefix.find_last_of(".root")!=std::string::npos)
+    {
+        prefix = prefix.substr(0,prefix.find_last_of(".root")-4);
+    }
+    if (char(prefix.back())!='_') prefix += "_";
     std::cout<<"prefix = "<<prefix<<std::endl;
 
     WCSimRootEvent* wcsimrootsuperevent = new WCSimRootEvent();
@@ -75,9 +79,11 @@ void VertexDistribution(const char * fname)
     TH2D* hist_vertices_xy = new TH2D("VerticesXY","VerticesXY",nBins,-max_r*1.1,max_r*1.1,nBins,-max_r*1.1,max_r*1.1);
     TH2D* hist_vertices_yz = new TH2D("VerticesYZ","VerticesYZ",nBins,-max_r*1.1,max_r*1.1,nBins,-max_z*1.1,max_z*1.1);
     TH2D* hist_vertices_zx = new TH2D("VerticesZX","VerticesZX",nBins,-max_z*1.1,max_z*1.1,nBins,-max_r*1.1,max_r*1.1);
+    int count1pc = t->GetEntries()/100;
+    if (count1pc==0) count1pc=1;
     for (long int nev=0;nev<t->GetEntries();nev++)
     {
-        if (nev%(t->GetEntries()/100)==0) std::cout<<"Running "<<nev<<"-th event of total "<<t->GetEntries()<<" events"<<std::endl;
+        if (nev%(count1pc)==0) std::cout<<"Running "<<nev<<"-th event of total "<<t->GetEntries()<<" events"<<std::endl;
 
         delete wcsimrootsuperevent;
         wcsimrootsuperevent = 0;  // EXTREMELY IMPORTANT

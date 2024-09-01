@@ -28,6 +28,11 @@ std::vector<TH1*> EventDisplay(const char * fname)
     {   
         prefix = prefix.substr(0,prefix.find_last_of("*"));
     }
+    if (prefix.find_last_of(".root")!=std::string::npos)
+    {
+        prefix = prefix.substr(0,prefix.find_last_of(".root")-4);
+    }
+    if (char(prefix.back())!='_') prefix += "_";
     std::cout<<"prefix = "<<prefix<<std::endl;
 
     WCSimRootEvent* wcsimrootsuperevent = new WCSimRootEvent();
@@ -90,8 +95,8 @@ std::vector<TH1*> EventDisplay(const char * fname)
     for (int i=0;i<nPMTs_type0;i++)
     {
         // rotation for event display
-        double x = -pmt_pos.at(i).at(0);
-        double y = pmt_pos.at(i).at(2);
+        double y = -pmt_pos.at(i).at(0);
+        double x = pmt_pos.at(i).at(2);
         double z = pmt_pos.at(i).at(1);
         std::vector<double> pmtXY;
         if (fabs(z)<barrelCut) // barrel
@@ -116,9 +121,11 @@ std::vector<TH1*> EventDisplay(const char * fname)
     std::vector<double> pmt_hit(nPMTs_type0,0.);
     TH1D* hist_timetof = new TH1D("DigiTime-TOF","DigiTime-TOF",1000,-20,40);
     TH1D* hist_timetof_true = new TH1D("TrueTime-TOF","TrueTime-TOF",1000,-1,5);
+    int count1pc = t->GetEntries()/100;
+    if (count1pc==0) count1pc=1;
     for (long int nev=0;nev<t->GetEntries();nev++)
     {
-        if (nev%(t->GetEntries()/100)==0) std::cout<<"Running "<<nev<<"-th event of total "<<t->GetEntries()<<" events"<<std::endl;
+        if (nev%(count1pc)==0) std::cout<<"Running "<<nev<<"-th event of total "<<t->GetEntries()<<" events"<<std::endl;
 
         delete wcsimrootsuperevent;
         wcsimrootsuperevent = 0;  // EXTREMELY IMPORTANT
@@ -175,12 +182,12 @@ std::vector<TH1*> EventDisplay(const char * fname)
     TCanvas* c1 = new TCanvas();
 
     hist_event_display->Draw("colz");
-    double vtx_x = -vtx.x(), vtx_y = vtx.z(), vtx_z = vtx.y();
+    double vtx_y = -vtx.x(), vtx_x = vtx.z(), vtx_z = vtx.y();
     // Extrapolate beam target point on the other side of the tank
-    double target_x = vtx_x - BeamDir.x(), target_y = vtx_y + BeamDir.z(), target_z = vtx_z + BeamDir.y();
+    double target_y = vtx_y - BeamDir.x(), target_x = vtx_x + BeamDir.z(), target_z = vtx_z + BeamDir.y();
     while (sqrt(target_x*target_x+target_y*target_y)<max_r && fabs(target_z)<max_z)
     {
-        target_x += -BeamDir.x(); target_y += BeamDir.z(); target_z += BeamDir.y();
+        target_y += -BeamDir.x(); target_x += BeamDir.z(); target_z += BeamDir.y();
     }
     double evtx, evty;
     if (fabs(vtx_z)<barrelCut)

@@ -32,7 +32,11 @@ void EventDisplay_SingleEvent(const char * fname, int evtID)
     {   
         prefix = prefix.substr(0,prefix.length()-5);
     }
-    if (prefix.find_last_of("_")!=prefix.length()-1) prefix += ("_");
+    if (prefix.find_last_of(".root")!=std::string::npos)
+    {
+        prefix = prefix.substr(0,prefix.find_last_of(".root")-4);
+    }
+    if (char(prefix.back())!='_') prefix += "_";
     std::cout<<"prefix = "<<prefix<<std::endl;
 
     WCSimRootEvent* wcsimrootsuperevent = new WCSimRootEvent();
@@ -95,8 +99,8 @@ void EventDisplay_SingleEvent(const char * fname, int evtID)
     for (int i=0;i<nPMTs_type0;i++)
     {
         // rotation for event display
-        double x = -pmt_pos.at(i).at(0);
-        double y = pmt_pos.at(i).at(2);
+        double y = -pmt_pos.at(i).at(0);
+        double x = pmt_pos.at(i).at(2);
         double z = pmt_pos.at(i).at(1);
         std::vector<double> pmtXY;
         if (fabs(z)<barrelCut) // barrel
@@ -181,12 +185,12 @@ void EventDisplay_SingleEvent(const char * fname, int evtID)
     TCanvas* c1 = new TCanvas();
 
     hist_event_display->Draw("colz");
-    double vtx_x = -vtx.x(), vtx_y = vtx.z(), vtx_z = vtx.y();
+    double vtx_y = -vtx.x(), vtx_x = vtx.z(), vtx_z = vtx.y();
     // Extrapolate beam target point on the other side of the tank
-    double target_x = vtx_x - BeamDir.x(), target_y = vtx_y + BeamDir.z(), target_z = vtx_z + BeamDir.y();
+    double target_y = vtx_y - BeamDir.x(), target_x = vtx_x + BeamDir.z(), target_z = vtx_z + BeamDir.y();
     while (sqrt(target_x*target_x+target_y*target_y)<max_r && fabs(target_z)<max_z)
     {
-        target_x += -BeamDir.x(); target_y += BeamDir.z(); target_z += BeamDir.y();
+        target_y += -BeamDir.x(); target_x += BeamDir.z(); target_z += BeamDir.y();
     }
     double evtx, evty;
     evtx = -max_r*atan2(vtx_y,vtx_x);
