@@ -36,6 +36,10 @@ void EventDisplay_SingleEvent(const char * fname, int evtID)
     {
         prefix = prefix.substr(0,prefix.find_last_of(".root")-4);
     }
+    while (prefix.find_last_of("\\")!=std::string::npos)
+    {
+        prefix.erase(prefix.find_last_of("\\"),1);
+    }
     if (char(prefix.back())!='_') prefix += "_";
     std::cout<<"prefix = "<<prefix<<std::endl;
 

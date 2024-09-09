@@ -133,6 +133,9 @@ def createWCSimFiles():
     uniformmac = "" if useUniform else "#"
 
     configString = "%s_%s_%s%s" % (wCDSstring,ParticleName,beamstring,uniformstring)
+    configString_TChain = configString
+    if ParticleName[-1]=="+":
+        configString_TChain= "%s_%s\\\\\\\\+_%s%s" % (wCDSstring,ParticleName[:-1],beamstring,uniformstring)
 
     print ("Creating mac files for WCSim")
     for i in range(nfiles):
@@ -202,6 +205,11 @@ def createWCSimFiles():
 
             print ("Submitting pjsub jobs on sukap")
             for i in range(nfiles):
+                # Remove in valid files
+                com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/RemoveInvalidFile.c\(\\\"%s/%s/wcsim%s%04i.root\\\",%i\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString,i,nevs), shell=True, 
+                                        stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                        close_fds=True)
+                res, err = com.communicate()
                 if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
                     # wait until job count is small enough
                     while True:
@@ -251,7 +259,8 @@ def createWCSimFiles():
                     
         # Make validation plots
         if useBeam:
-            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
+            print("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain))
+            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain), shell=True, 
                                     stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
                                     close_fds=True)
             res, err = com.communicate()
