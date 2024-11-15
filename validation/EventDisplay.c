@@ -1,4 +1,4 @@
-R__LOAD_LIBRARY(/opt/WCSim/build/install/lib/libWCSimRoot.so)
+R__LOAD_LIBRARY($WCSIM_BUILD_DIR/lib/libWCSimRoot.so)
 
 void EventDisplay(const char * fname)
 {
