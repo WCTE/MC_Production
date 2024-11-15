@@ -125,6 +125,7 @@ void EventDisplay(const char * fname)
     std::vector<double> pmt_hit(nPMTs_type0,0.);
     TH1D* hist_timetof = new TH1D("DigiTime-TOF","DigiTime-TOF",1000,-20,40);
     TH1D* hist_timetof_true = new TH1D("TrueTime-TOF","TrueTime-TOF",1000,-1,5);
+    TH1D* hist_NDigiHits = new TH1D("NDigiHits","NDigiHits",2000,0,2000);
     int count1pc = t->GetEntries()/100;
     if (count1pc==0) count1pc=1;
     for (long int nev=0;nev<t->GetEntries();nev++)
@@ -146,6 +147,7 @@ void EventDisplay(const char * fname)
         }
 
         int nhits = wcsimrootevent->GetNcherenkovdigihits(); 
+        hist_NDigiHits->Fill(nhits);
 
         // Fill digi hit histogram
         for (int i=0; i< nhits ; i++)
@@ -245,6 +247,9 @@ void EventDisplay(const char * fname)
     hist_timetof_true->Draw("hist");
     //c1->SetLogy();
     c1->SaveAs(Form("/mnt/fig/%stimetof_true.pdf",prefix.c_str()));
+
+    hist_NDigiHits->Draw("hist");
+    c1->SaveAs(Form("/mnt/fig/%sNDigiHits.pdf",prefix.c_str()));
 
     f->Close();
     t->Reset();
