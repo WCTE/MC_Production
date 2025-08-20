@@ -19,6 +19,7 @@ def usage():
     print ("-p, --pid=<name>: particle name (mu-, e-, etc.)")
     print ("-b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm")
     print ("-u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV")
+    print ("-m, --cosmics: generate cosmic muon events")
     print ("-n, --nevs=<val>: number of events per file")
     print ("-f, --nfiles=<val>: numbe of files to be generated")
     print ("-s, --seed=<val>: RNG seed used in this script")
@@ -52,7 +53,7 @@ def createWCSimFiles():
     sandbox = "../softwarecontainer_v1.4.1/"
     siffile = "softwarecontainer_v1.4.1.sif"
 
-    rngseed = 20240901
+    rngseed = 20250820
     ParticleName = "mu-"
 
     TankRadius = 307.5926/2
@@ -79,10 +80,12 @@ def createWCSimFiles():
     ParticleKELow = 0.
     ParticleKEHigh = 2000.
 
+    useCosmics = False
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hckp:n:f:s:d:b:u:",
+        opts, args = getopt.getopt(sys.argv[1:], "hckmp:n:f:s:d:b:u:",
                                    ["help", "pid=", "beam=", "uniform=", 
-                                    "nevs=", "nfiles=",
+                                    "cosmics", "nevs=", "nfiles=",
                                     "seed=", "cds", "sukap","cedar="])
     except getopt.GetoptError as err:
         print (str(err))
@@ -98,6 +101,7 @@ def createWCSimFiles():
         if (opt in ("-b", "--beam")):
             useBeam = True
             useUniform = False
+            useCosmics = False
             vals = val.strip().split(",")
             ParticleKE = float(vals[0])
             wallD = float(vals[1])
@@ -105,9 +109,14 @@ def createWCSimFiles():
         if (opt in ("-u", "--uniform")):
             useBeam = False
             useUniform = True
+            useCosmics = False
             vals = val.strip().split(",")
             ParticleKELow = float(vals[0])
             ParticleKEHigh = float(vals[1])
+        if (opt in ("-m", "--cosmics")):
+            useBeam = False
+            useUniform = False
+            useCosmics = True
         if (opt in ("-n", "--nevs")):
             nevs = int(val.strip())
         if (opt in ("-f", "--nfiles")):
@@ -132,10 +141,16 @@ def createWCSimFiles():
     uniformstring = "Uniform_%.0f_%.0fMeV_" % (ParticleKELow,ParticleKEHigh) if useUniform else ""
     uniformmac = "" if useUniform else "#"
 
+    cosmicsstring = "Comsics_" if useCosmics else ""
+    comsicsmac = "" if useCosmics else "#"
+
     configString = "%s_%s_%s%s" % (wCDSstring,ParticleName,beamstring,uniformstring)
+    if useCosmics:
+        configString = "%s_%s" % (wCDSstring,cosmicsstring)
     configString_TChain = configString
     if ParticleName[-1]=="+":
         configString_TChain= "%s_%s\\\\\\\\+_%s%s" % (wCDSstring,ParticleName[:-1],beamstring,uniformstring)
+
 
     print ("Creating mac files for WCSim")
     for i in range(nfiles):
@@ -146,7 +161,7 @@ def createWCSimFiles():
         fo = open(macFile, 'w')
         macseed = random.randrange(int(1e9))
         fo.write(macTemplate.substitute(wcsimdir=wcsimdir, rngseed=macseed, wCDSmac=wCDSmac, 
-                                        beammac=beammac,uniformmac=uniformmac,
+                                        beammac=beammac,uniformmac=uniformmac,comsicsmac=comsicsmac,
                                         ParticleName=ParticleName,ParticleKE=ParticleKE,
                                         ParticleDirx=ParticleDirx,ParticleDiry=ParticleDiry,ParticleDirz=ParticleDirz,
                                         ParticlePosx=ParticlePosx,ParticlePosy=ParticlePosy,ParticlePosz=ParticlePosz,

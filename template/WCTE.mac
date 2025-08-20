@@ -18,6 +18,7 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 /WCSim/PMTCollEff on
 
 /WCSim/SavePi0 false
+/WCSim/SaveCapture true
 
 /DAQ/Digitizer SKI
 #/DAQ/Trigger NDigits
@@ -30,7 +31,7 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 
 
 #/DarkRate/SetDarkRate 0 kHz   #Turn dark noise off
-#/DarkRate/SetDarkRate 4.2 kHz #This is the value for SKI set in SKDETSIM.
+/DarkRate/SetDarkRate 1.0 kHz #This is the default value for WCTE PMT.
 /DarkRate/SetDarkMode 1
 /DarkRate/SetDarkHigh 100000
 /DarkRate/SetDarkLow 0
@@ -52,6 +53,8 @@ $uniformmac/gps/pos/rot1       1 0 0
 $uniformmac/gps/pos/rot2       0 0 1
 $uniformmac/gps/pos/radius     $rmac cm
 $uniformmac/gps/pos/halfz      $zmac cm
+$comsicsmac/mygen/generator cosmics
+$comsicsmac/mygen/cosmicsfile $wcsimdir/data/WCTE_cosmics.dat
 
 /Tracking/fractionOpticalPhotonsToDraw 0.0
 
