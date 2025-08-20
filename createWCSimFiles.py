@@ -49,8 +49,8 @@ def createWCSimFiles():
     wcsim_build_dir="/opt/WCSim/build"
     mntdir="/mnt"
 
-    sandbox = "wcsim_sandbox/"
-    siffile = "softwarecontainer_v1.3.1.sif"
+    sandbox = "../softwarecontainer_v1.4.1/"
+    siffile = "softwarecontainer_v1.4.1.sif"
 
     rngseed = 20240901
     ParticleName = "mu-"
@@ -72,7 +72,7 @@ def createWCSimFiles():
     ParticleDirz = 1
     ParticlePosx = 0
     ParticlePosy = -42.47625
-    wallD = 15.
+    wallD = 0.
     ParticlePosz= -(TankRadius-wallD)
 
     useUniform = False
