@@ -14,6 +14,8 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 
 /WCSim/Construct
 
+/WCSim/random/seed $rngseed
+
 /WCSim/PMTQEMethod     SensitiveDetector_Only
 /WCSim/PMTCollEff on
 
@@ -24,17 +26,17 @@ $wCDSmac/WCSim/PMT/PositionFile $wcsimdir/data/mPMT_Position_WCTE_CDS.txt
 #/DAQ/Trigger NDigits
 /DAQ/Trigger NoTrigger
 
-/control/execute $wcsimdir/macros/daq.mac
-
-#/random/setSeeds 2 1
-/WCSim/random/seed $rngseed
-
+# how long does the digitizer integrate for (ns)?
+/DAQ/DigitizerOpt/IntegrationWindow 144
+#The timing resolution for the digitizer (in ns)
+/DAQ/DigitizerOpt/TimingPrecision 0.1
 
 #/DarkRate/SetDarkRate 0 kHz   #Turn dark noise off
 /DarkRate/SetDarkRate 1.0 kHz #This is the default value for WCTE PMT.
+# adds dark noise hits to a window of
+# width /DarkRate/SetDarkWindow [time in ns] around each hit
+# i.e. hit time ± (/DarkRate/SetDarkWindow) / 2
 /DarkRate/SetDarkMode 1
-/DarkRate/SetDarkHigh 100000
-/DarkRate/SetDarkLow 0
 /DarkRate/SetDarkWindow 4000
 
 /mygen/generator gps
