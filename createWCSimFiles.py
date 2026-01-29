@@ -50,8 +50,12 @@ def createWCSimFiles():
     wcsim_build_dir="/opt/WCSim/build"
     mntdir="/mnt"
 
-    sandbox = "../softwarecontainer_v1.4.1/"
-    siffile = "softwarecontainer_v1.4.1.sif"
+    # Get container configuration from environment
+    siffile = os.environ.get("SOFTWARE_SIF_FILE")
+    sandbox = os.environ.get("SOFTWARE_SANDBOX_DIR")
+    if not siffile and not sandbox:
+        print ("ERROR: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR not set.")
+        sys.exit(1)
 
     rngseed = 20250820
     ParticleName = "mu-"
@@ -130,6 +134,10 @@ def createWCSimFiles():
         if (opt in ("-d", "--cedar")):
             submit_cedar_jobs = True
             rapaccount = val.strip()
+
+    if submit_sukap_jobs and not sandbox:
+        print ("ERROR: SOFTWARE_SANDBOX_DIR is needed for sukap submission.")
+        sys.exit(1)
 
     wCDSstring = "_wCDS" if useCDS else ""
     wCDSmac = "" if useCDS else "#"
