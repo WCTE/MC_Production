@@ -191,7 +191,7 @@ def runSimulation():
         fo.close()
         fi.close()
 
-    cern_condor="#"
+    cern_condor="" if submit_condor_jobs else "#"
     userns="-u" if submit_sukap_jobs else ""
     siffile=sandbox if submit_sukap_jobs else siffile
 
