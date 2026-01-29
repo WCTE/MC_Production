@@ -57,7 +57,7 @@ def createWCSimFiles():
         print ("ERROR: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR not set.")
         sys.exit(1)
 
-    rngseed = 20250820
+    rngseed = 20260129
     ParticleName = "mu-"
 
     TankRadius = 307.5926/2
@@ -187,17 +187,27 @@ def createWCSimFiles():
         fo.close()
         fi.close()
 
-    print ("Creating shell scripts for WCSim")
+    cern_condor="#"
+    userns="-u" if submit_sukap_jobs else ""
+    siffile=sandbox if submit_sukap_jobs else siffile
+
+    print ("Creating shell scripts for simulation")
     for i in range(nfiles):
-        fi = open("template/run_wcsim.sh",'r')
+        fi = open("template/run.sh",'r')
         shLines = fi.read()
         shTemplate = string.Template(shLines)
-        shFile = "%s/wcsim%s%04i.sh" % (shelldir,configString,i)
+        shFile = "%s/run%s%04i.sh" % (shelldir,configString,i)
         fo = open(shFile, 'w')
-        fo.write(shTemplate.substitute(geant4dir=geant4dir, wcsim_build_dir=wcsim_build_dir,
-                                   macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
-                                   tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (mntdir,macdir,configString,i),
-                                   logfile="%s/%s/wcsim%s%04i.log" % (mntdir,logdir,configString,i)))
+        fo.write(shTemplate.substitute
+            (curdir=curdir,cern_condor=cern_condor, userns=userns,
+            mntdir=mntdir,siffile=siffile,
+            macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
+            tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (mntdir,macdir,configString,i),
+            logfile="%s/%s/run%s%04i.log" % (mntdir,logdir,configString,i),
+            wcsimfile="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i), nevs=nevs,
+            mdtfile="%s/%s/mdt%s%04i.root" % (mntdir,outdir,configString,i),
+            fqfile="%s/%s/fq%s%04i.root" % (mntdir,outdir,configString,i),
+            rngseed=random.randrange(int(1e9))))
         fo.close()
         fi.close()
 
@@ -208,17 +218,6 @@ def createWCSimFiles():
         for dir in [pjdir,pjoutdir,pjerrdir]:
             if (not os.path.exists(dir)):
                 os.makedirs(dir)
-        print ("Creating pjsub scripts for WCSim")
-        for i in range(nfiles):
-            fi = open("template/pjsub_wcsim.sh",'r')
-            pjLines = fi.read()
-            pjTemplate = string.Template(pjLines)
-            pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
-            fo = open(pjFile, 'w')
-            fo.write(pjTemplate.substitute(curdir=curdir, mntdir=mntdir, siffile=sandbox,
-                                           shfile="%s/%s/wcsim%s%04i.sh" % (mntdir,shelldir,configString,i)))
-            fo.close()
-            fi.close()
 
         allFilesOK = False
 
@@ -228,11 +227,6 @@ def createWCSimFiles():
 
             print ("Submitting pjsub jobs on sukap")
             for i in range(nfiles):
-                # Remove in valid files
-                com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/RemoveInvalidFile.c\(\\\"%s/%s/wcsim%s%04i.root\\\",%i\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString,i,nevs), shell=True, 
-                                        stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                        close_fds=True)
-                res, err = com.communicate()
                 if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
                     # wait until job count is small enough
                     while True:
@@ -243,13 +237,22 @@ def createWCSimFiles():
                             break
                         time.sleep(10)
 
+                    fi = open("template/pjsub.sh",'r')
+                    shLines = fi.read()
+                    shTemplate = string.Template(shLines)
+                    shFile = "%s/run%s%04i.sh" % (shelldir,configString,i)
                     pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
-                    pjout = "%s/pjsub%s%04i.%%j.out" % (pjoutdir,configString,i)
-                    pjerr = "%s/pjsub%s%04i.%%j.err" % (pjerrdir,configString,i)
+                    pjout = "%s/pjsub%s%04i.out" % (pjoutdir,configString,i)
+                    pjerr = "%s/pjsub%s%04i.err" % (pjerrdir,configString,i)
+                    fo = open(pjFile, 'w')
+                    fo.write(shTemplate.substitute
+                        (curdir=curdir,shFile=shFile,pjout=pjout,pjerr=pjerr))
+                    fo.close()
+                    fi.close()
 
                     # repeatedly submit job until success
                     while True:
-                        com = subprocess.Popen("pjsub -o %s -e %s %s" % (pjout,pjerr,pjFile), shell=True, 
+                        com = subprocess.Popen("pjsub %s" % (pjFile), shell=True, 
                                             stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
                                             close_fds=True)
                         res, err = com.communicate()
@@ -266,43 +269,32 @@ def createWCSimFiles():
                 while True:
                     com = subprocess.Popen("pjstat %i | wc -l" % job_id[i][0], shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                     res, err = com.communicate()
-                    # Remove in valid files
-                    if int(res)==0:
-                        com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/RemoveInvalidFile.c\(\\\"%s/%s/wcsim%s%04i.root\\\",%i\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString,job_id[i][1],nevs), shell=True, 
-                                            stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                            close_fds=True)
-                        res, err = com.communicate()
-                        print (res)
-                        if (len(err)>0):
-                            print(err)
-                            allFilesOK = False
-                        break
                     time.sleep(10)
                     print ("sleep for 10s")
                     
-        # Make validation plots
-        if useBeam:
-            print("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain))
-            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain), shell=True, 
-                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    close_fds=True)
-            res, err = com.communicate()
-            if (len(err)>0):
-                print (err)
-                sys.exit(1)
-            else:
-                print (res)
+        # # Make validation plots
+        # if useBeam:
+        #     print("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain))
+        #     com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain), shell=True, 
+        #                             stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+        #                             close_fds=True)
+        #     res, err = com.communicate()
+        #     if (len(err)>0):
+        #         print (err)
+        #         sys.exit(1)
+        #     else:
+        #         print (res)
 
-        else:
-            com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/VertexDistribution.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
-                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    close_fds=True)
-            res, err = com.communicate()
-            if (len(err)>0):
-                print (err)
-                sys.exit(1)
-            else:
-                print (res)
+        # else:
+        #     com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/VertexDistribution.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
+        #                             stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+        #                             close_fds=True)
+        #     res, err = com.communicate()
+        #     if (len(err)>0):
+        #         print (err)
+        #         sys.exit(1)
+        #     else:
+        #         print (res)
 
     if submit_cedar_jobs :
         sldir = "sldir"
@@ -321,7 +313,7 @@ def createWCSimFiles():
             slerr = "%s/slurm%s%04i" % (slerrdir,configString,i)
             fo = open(slFile, 'w')
             fo.write(slTemplate.substitute(account=rapaccount, curdir=curdir, mntdir=mntdir, siffile=siffile, sout=slout, serr=slerr,
-                                           shfile="%s/%s/wcsim%s%04i.sh" % (mntdir,shelldir,configString,i)))
+                                           shfile="%s/%s/run%s%04i.sh" % (mntdir,shelldir,configString,i)))
             fo.close()
             fi.close()
 
