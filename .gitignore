@@ -9,6 +9,10 @@ pjerr/
 sldir/
 slout/
 slerr/
+condor_dir/
+condor_err/
+condor_log/
+condor_out/
 .singularity/
 *sandbox/
 
