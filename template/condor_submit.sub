@@ -1,0 +1,15 @@
+# job.sub
+universe = vanilla
+executable = $shfile
+
+should_transfer_files   = IF_NEEDED
+when_to_transfer_output = ON_EXIT
+
+output     = ${out}.out
+error      = ${err}.err
+log        = ${log}.log
+
+# Choose runtime environment
++JobFlavour = "tomorrow"
+
+queue 1
