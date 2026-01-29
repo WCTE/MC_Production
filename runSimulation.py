@@ -12,7 +12,7 @@ def usage():
     '''
     print ("Function to create mac, shell and batch job scripts for WCSim")
     print ("Usage:")
-    print ("createWCSimFiles.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
+    print ("runSimulation.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
     print ("")
     print ("Options:")
     print ("-h, --help: prints help message")
@@ -28,7 +28,7 @@ def usage():
     print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
     print ("")
 
-def createWCSimFiles():
+def runSimulation():
     '''Function to create mac files for WCSim'''
 
     # make necessary directories
@@ -333,4 +333,4 @@ def createWCSimFiles():
 
 
 if __name__ == '__main__':
-    createWCSimFiles()
+    runSimulation()
