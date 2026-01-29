@@ -26,6 +26,7 @@ def usage():
     print ("-c, --cds: disable CDS in WCSim")
     print ("-k, --sukap: submit batch jobs on sukap")
     print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
+    print ("--condor: submit condor jobs on lxplus")
     print ("")
 
 def runSimulation():
@@ -68,6 +69,7 @@ def runSimulation():
     useCDS = True
     submit_sukap_jobs = False
     submit_cedar_jobs = False
+    submit_condor_jobs = False
     rapaccount = ""
 
     useBeam = True
@@ -90,7 +92,7 @@ def runSimulation():
         opts, args = getopt.getopt(sys.argv[1:], "hckmp:n:f:s:d:b:u:",
                                    ["help", "pid=", "beam=", "uniform=", 
                                     "cosmics", "nevs=", "nfiles=",
-                                    "seed=", "cds", "sukap","cedar="])
+                                    "seed=", "cds", "sukap","cedar=","condor"])
     except getopt.GetoptError as err:
         print (str(err))
         usage()
@@ -134,6 +136,8 @@ def runSimulation():
         if (opt in ("-d", "--cedar")):
             submit_cedar_jobs = True
             rapaccount = val.strip()
+        if (opt == "--condor"):
+            submit_condor_jobs = True
 
     if submit_sukap_jobs and not sandbox:
         print ("ERROR: SOFTWARE_SANDBOX_DIR is needed for sukap submission.")
@@ -264,13 +268,13 @@ def runSimulation():
                         time.sleep(1)
             
             allFilesOK = True
-            for i in range(len(job_id)):
-                # check if a job is completed
-                while True:
-                    com = subprocess.Popen("pjstat %i | wc -l" % job_id[i][0], shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-                    res, err = com.communicate()
-                    time.sleep(10)
-                    print ("sleep for 10s")
+            # for i in range(len(job_id)):
+            #     # check if a job is completed
+            #     while True:
+            #         com = subprocess.Popen("pjstat %i | wc -l" % job_id[i][0], shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            #         res, err = com.communicate()
+            #         time.sleep(10)
+            #         print ("sleep for 10s")
                     
         # # Make validation plots
         # if useBeam:
@@ -313,7 +317,7 @@ def runSimulation():
             slerr = "%s/slurm%s%04i" % (slerrdir,configString,i)
             fo = open(slFile, 'w')
             fo.write(slTemplate.substitute(account=rapaccount, curdir=curdir, mntdir=mntdir, siffile=siffile, sout=slout, serr=slerr,
-                                           shfile="%s/%s/run%s%04i.sh" % (mntdir,shelldir,configString,i)))
+                                           shfile="%s/run%s%04i.sh" % (shelldir,configString,i)))
             fo.close()
             fi.close()
 
@@ -330,6 +334,43 @@ def runSimulation():
                     sys.exit(1)
                 else:
                     print (res)
+
+    if submit_condor_jobs :
+        print ("Creating condor scripts")
+        condordir = "condor_dir"
+        condorout = "condor_out"
+        condorerr = "condor_err"
+        condorlog = "condor_log"
+        for dir in [condordir,condorout,condorerr,condorlog]:
+            if (not os.path.exists(dir)):
+                os.makedirs(dir)
+        for i in range(nfiles):
+            fi = open("template/condor_submit.sub",'r')
+            condorLines = fi.read()
+            condorTemplate = string.Template(condorLines)
+            condorFile = "%s/condor%s%04i.sub" % (condordir,configString,i)
+            fo = open(condorFile, 'w')
+            out="%s/condor%s%04i" % (condorout,configString,i)
+            err="%s/condor%s%04i" % (condorerr,configString,i)
+            log="%s/condor%s%04i" % (condorlog,configString,i)
+            shfile="%s/run%s%04i.sh" % (shelldir,configString,i)
+            fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log))
+            fo.close()
+            fi.close()
+        print ("Submitting condor jobs on lxplus")
+        for i in range(nfiles):
+            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
+                condorFile = "%s/condor%s%04i.sub" % (condordir,configString,i)
+                com = subprocess.Popen("module load lxbatch/eossubmit && condor_submit %s" % (condorFile), shell=True, 
+                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    close_fds=True)
+                res, err = com.communicate()
+                if (len(err) > 0):
+                    print (err)
+                    sys.exit(1)
+                else:
+                    print (res)
+
 
 
 if __name__ == '__main__':
