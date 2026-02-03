@@ -111,3 +111,18 @@ async def submit_simulation(
         "message": f"Simulation configured for {particle_name} ({energy} MeV). Job submission started in background.",
         "config_string": config.get_config_string()
     }
+
+@app.get("/status")
+async def get_job_status(batch_system: str = "none"):
+    # Initialize config
+    config = runSimulation.SimulationConfig()
+    
+    if batch_system == "sukap":
+        config.submit_sukap_jobs = True
+    elif batch_system == "cedar":
+        config.submit_cedar_jobs = True
+    elif batch_system == "condor":
+        config.submit_condor_jobs = True
+    
+    status_checker = runSimulation.JobStatus(config)
+    return status_checker.get_jobs()

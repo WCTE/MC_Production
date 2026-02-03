@@ -6,6 +6,7 @@ import os
 import subprocess
 import string
 import random
+import getpass
 
 class SimulationConfig:
     def __init__(self):
@@ -317,6 +318,106 @@ class JobSubmitter:
                     sys.exit(1)
                 else:
                     print (res)
+
+class JobStatus:
+    def __init__(self, config):
+        self.cfg = config
+        self.user = os.environ.get('USER')
+        if not self.user:
+            self.user = getpass.getuser()
+
+    def get_jobs(self):
+        jobs = {}
+        if self.cfg.submit_sukap_jobs:
+            jobs['sukap'] = self.get_sukap_jobs()
+        if self.cfg.submit_cedar_jobs:
+            jobs['cedar'] = self.get_cedar_jobs()
+        if self.cfg.submit_condor_jobs:
+            jobs['condor'] = self.get_condor_jobs()
+        return jobs
+
+    def get_sukap_jobs(self):
+        jobs = []
+        header = ""
+        try:
+            com = subprocess.Popen("pjstat", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                lines = res.decode('utf-8').split('\n')
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) < 5: continue
+                    if parts[0] == "JOB_ID":
+                        header = line
+                        continue
+                    if parts[4] == self.user:
+                        jobs.append(line)
+        except Exception as e:
+            print ("Error getting sukap jobs: %s" % str(e))
+        
+        if len(jobs) > 0 and header != "":
+            jobs.insert(0, header)
+        return jobs
+
+    def get_cedar_jobs(self):
+        jobs = []
+        header = ""
+        try:
+            com = subprocess.Popen("squeue", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                lines = res.decode('utf-8').split('\n')
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) < 4: continue
+                    if parts[0] == "JOBID":
+                        header = line
+                        continue
+                    if parts[3] == self.user:
+                        jobs.append(line)
+        except Exception as e:
+            print ("Error getting cedar jobs: %s" % str(e))
+            
+        if len(jobs) > 0 and header != "":
+            jobs.insert(0, header)
+        return jobs
+
+    def get_condor_jobs(self):
+        jobs = []
+        try:
+            com = subprocess.Popen("condor_q -global", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                lines = res.decode('utf-8').split('\n')
+                current_schedd = ""
+                current_header = ""
+                current_jobs = []
+
+                for line in lines:
+                    if line.startswith("-- Schedd"):
+                        if len(current_jobs) > 0:
+                            jobs.append(current_schedd)
+                            jobs.append(current_header)
+                            jobs.extend(current_jobs)
+                            jobs.append("")
+                        current_schedd = line
+                        current_header = ""
+                        current_jobs = []
+                    elif line.startswith("OWNER"):
+                        current_header = line
+                    else:
+                        parts = line.split()
+                        if len(parts) > 0 and parts[0] == self.user:
+                            current_jobs.append(line)
+                
+                if len(current_jobs) > 0:
+                    jobs.append(current_schedd)
+                    jobs.append(current_header)
+                    jobs.extend(current_jobs)
+
+        except Exception as e:
+            print ("Error getting condor jobs: %s" % str(e))
+        return jobs
 
 def usage():
     print ("Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")

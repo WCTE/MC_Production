@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WCTE Simulation Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body class="bg-light">
     <div class="container py-5">
@@ -16,12 +17,13 @@
                 <form id="simulationForm" action="/submit" method="post">
                     <div class="mb-3">
                         <label class="form-label">Particle Name</label>
-                        <select name="particle_name" class="form-select">
-                            <option value="mu-">mu-</option>
-                            <option value="e-">e-</option>
-                            <option value="mu+">mu+</option>
-                            <option value="e+">e+</option>
-                        </select>
+                        <input class="form-control" list="particleOptions" name="particle_name" value="mu-">
+                        <datalist id="particleOptions">
+                            <option value="mu-">
+                            <option value="e-">
+                            <option value="mu+">
+                            <option value="e+">
+                        </datalist>
                     </div>
 
                     <div class="mb-3">
@@ -115,6 +117,27 @@
                         <p class="mb-0">Config String: <code id="resultConfig"></code></p>
                     </div>
                 </div>
+
+                <hr class="my-4">
+                
+                <div id="statusSection">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">Job Status</h4>
+                        <div class="d-flex gap-2">
+                            <select id="statusBatchSystem" class="form-select" style="width: auto;">
+                                <option value="sukap">Sukap</option>
+                                <option value="cedar">Cedar</option>
+                                <option value="condor">Condor</option>
+                            </select>
+                            <button id="statusBtn" class="btn btn-info text-white">Refresh</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card card-body bg-white border">
+                        <pre id="statusContent" class="mb-0">Select a system and click refresh.</pre>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -178,6 +201,42 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Submit Simulation';
+            }
+        });
+
+        let refreshInterval = null;
+        const statusBtn = document.getElementById('statusBtn');
+
+        async function updateStatus() {
+            try {
+                const batchSystem = document.getElementById('statusBatchSystem').value;
+                const response = await fetch(`/status?batch_system=${batchSystem}`);
+                const data = await response.json();
+                
+                const formatLines = (lines) => {
+                    if (!lines || lines.length === 0) return 'No active jobs found.';
+                    return lines.join('\n');
+                };
+
+                document.getElementById('statusContent').textContent = formatLines(data[batchSystem]);
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+            }
+        }
+
+        statusBtn.addEventListener('click', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+                this.textContent = 'Refresh';
+                this.classList.remove('btn-danger');
+                this.classList.add('btn-info');
+            } else {
+                this.textContent = 'Stop Refresh';
+                this.classList.remove('btn-info');
+                this.classList.add('btn-danger');
+                updateStatus();
+                refreshInterval = setInterval(updateStatus, 10000);
             }
         });
     </script>
