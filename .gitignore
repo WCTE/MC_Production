@@ -8,6 +8,8 @@
 .singularity/
 *sandbox/
 
+*.pyc
+
 # sif image
 *.sif
 

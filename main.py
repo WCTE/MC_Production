@@ -1,0 +1,113 @@
+from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import runSimulation
+import os
+
+app = FastAPI()
+
+# Ensure templates directory exists
+if not os.path.exists("templates"):
+    os.makedirs("templates")
+
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.post("/submit")
+async def submit_simulation(
+    background_tasks: BackgroundTasks,
+    particle_name: str = Form(...),
+    mode: str = Form("beam"),
+    energy: float = Form(100),
+    wall_distance: float = Form(0),
+    energy_low: float = Form(0),
+    energy_high: float = Form(2000),
+    nevs: int = Form(1000),
+    nfiles: int = Form(100),
+    batch_system: str = Form("none"), # none, sukap, cedar, condor
+    rap_account: str = Form(""),
+    seed: int = Form(20260129),
+    # Boolean flags: Default to False so that if unchecked (sending nothing), they are False.
+    # The HTML form will have them checked by default, sending 'true'.
+    run_wcsim: bool = Form(False),
+    run_mdt: bool = Form(False),
+    run_fq: bool = Form(False)
+):
+    # Check Environment Variables manually to avoid sys.exit() in SimulationConfig.validate()
+    siffile = os.environ.get("SOFTWARE_SIF_FILE")
+    sandbox = os.environ.get("SOFTWARE_SANDBOX_DIR")
+    
+    if not siffile and not sandbox:
+        raise HTTPException(status_code=500, detail="Server Error: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR are not set in the environment.")
+
+    # Initialize Configuration
+    config = runSimulation.SimulationConfig()
+    config.ParticleName = particle_name
+    config.nevs = nevs
+    config.nfiles = nfiles
+    config.rngseed = seed
+    
+    # Set Toggles
+    config.runWCSim = run_wcsim
+    config.runMDT = run_mdt
+    config.runFQ = run_fq
+
+    # Configure Mode
+    if mode == "beam":
+        config.useBeam = True
+        config.useUniform = False
+        config.useCosmics = False
+        config.ParticleKE = energy
+        config.wallD = wall_distance
+        config.ParticlePosz = -(config.TankRadius - config.wallD)
+    elif mode == "uniform":
+        config.useBeam = False
+        config.useUniform = True
+        config.useCosmics = False
+        config.ParticleKELow = energy_low
+        config.ParticleKEHigh = energy_high
+    elif mode == "cosmics":
+        config.useBeam = False
+        config.useUniform = False
+        config.useCosmics = True
+    
+    # Configure Batch System
+    if batch_system == "sukap":
+        if not sandbox:
+             raise HTTPException(status_code=400, detail="Configuration Error: SOFTWARE_SANDBOX_DIR is required for Sukap submission.")
+        config.submit_sukap_jobs = True
+    elif batch_system == "cedar":
+        config.submit_cedar_jobs = True
+        config.rapaccount = rap_account
+    elif batch_system == "condor":
+        config.submit_condor_jobs = True
+        
+    # Generate Files
+    try:
+        fgen = runSimulation.FileGenerator(config)
+        fgen.create_directories()
+        fgen.generate_mac_files()
+        fgen.generate_shell_scripts()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File Generation Failed: {str(e)}")
+
+    # Submit Jobs (Background Task)
+    # We pass the logic to background_tasks so the web request returns immediately
+    submitter = runSimulation.JobSubmitter(config, fgen)
+    
+    if config.submit_sukap_jobs:
+        background_tasks.add_task(submitter.submit_sukap)
+    if config.submit_cedar_jobs:
+        background_tasks.add_task(submitter.submit_cedar)
+    if config.submit_condor_jobs:
+        background_tasks.add_task(submitter.submit_condor)
+        
+    return {
+        "status": "success", 
+        "message": f"Simulation configured for {particle_name} ({energy} MeV). Job submission started in background.",
+        "config_string": config.get_config_string()
+    }
