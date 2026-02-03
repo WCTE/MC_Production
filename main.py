@@ -4,6 +4,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import runSimulation
 import os
+import sys
+
+# Check Environment Variables on startup
+if not os.environ.get("SOFTWARE_SIF_FILE") and not os.environ.get("SOFTWARE_SANDBOX_DIR"):
+    print("\033[91mCRITICAL ERROR: Environment not configured.\033[0m")
+    print("You must source 'setup.sh' before starting this server.")
+    print("Usage: source setup.sh <sif_file> [sandbox_dir]")
+    sys.exit(1)
 
 app = FastAPI()
 
@@ -42,7 +50,10 @@ async def submit_simulation(
     sandbox = os.environ.get("SOFTWARE_SANDBOX_DIR")
     
     if not siffile and not sandbox:
-        raise HTTPException(status_code=500, detail="Server Error: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR are not set in the environment.")
+        msg = ("Server Error: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR are not set in the environment.<br>"
+               "Please source the setup script before running the server:<br>"
+               "<code>source setup.sh &lt;sif_file&gt; [sandbox_dir] [--build]</code>")
+        raise HTTPException(status_code=500, detail=msg)
 
     # Initialize Configuration
     config = runSimulation.SimulationConfig()

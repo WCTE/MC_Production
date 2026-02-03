@@ -196,7 +196,7 @@
                 resultPanel.classList.remove('d-none');
                 resultAlert.className = 'alert alert-danger';
                 document.getElementById('resultStatus').textContent = 'Error';
-                document.getElementById('resultMessage').textContent = error.message;
+                document.getElementById('resultMessage').innerHTML = error.message;
                 document.getElementById('resultConfig').textContent = '';
             } finally {
                 btn.disabled = false;
