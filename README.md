@@ -9,77 +9,122 @@ cd MC_Production
 ```
 Then get the software container image according to [instructions](https://github.com/WCTE/SoftwareContainer).
 
-## createWCSimFiles.py
-This script generates the mac files and shell scripts for running WCSim.
-```
-python3 createWCSimFiles.py
-```
-It generates mu- particle gun mac files under `mac/`, and container run scripts under `shell/`. By default, the particle is shot from the approximate beam window position towards the tank center (negative z-direction). There is also an option to generate random vertices in the detector.
+### Environment Setup
+Before running any scripts, you must set up the environment variables using `setup.sh`.
 
-All available options are
-```
--h, --help: prints help message
--p, --pid=<name>: particle name (mu-, e-, etc.)
--b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm
--u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV
--n, --nevs=<val>: number of events per file
--f, --nfiles=<val>: numbe of files to be generated
--s, --seed=<val>: RNG seed used in this script
--c, --cds: disable CDS in WCSim
--k, --sukap: submit batch jobs on sukap
--d, --cedar=<account>: submit batch jobs on cedar with specified RAP account
+If you only have a Singularity Image File (.sif):
+```bash
+source setup.sh /path/to/softwarecontainer.sif
 ```
 
-To run the shell scripts with singularity,
+If you need a sandbox (required for Sukap submission): 
+```bash 
+# If sandbox exists 
+source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir 
+# If you need to build the sandbox from the SIF 
+source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir --build
 ```
-# assume you have already run python3 createWCSimFiles.py -b 100,30 which produced 
-# mac/wcsim_mu-_Beam_100MeV_30cm_0000.mac and shell/wcsim_mu-_Beam_100MeV_30cm_0000.sh
-singularity exec -B ./:/mnt softwarecontainer_v1.3.1.sif bash /mnt/shell/wcsim_mu-_Beam_100MeV_30cm_0000.sh
-```
-The `-B` option binds the current directory to `/mnt` inside the container so you can access the files and write the outputs there. The output root file and log are located at `out/` and `log/`.
+## runSimulation.py
+This script generates the mac files, shell scripts, and handles batch job submission for WCSim, MDT, and fiTQun.
 
-### Batch job submission on sukap
-To submit batch jobs on sukap, you first need to create a sandbox
+```bash
+python3 runSimulation.py [options]
 ```
-singularity build --sandbox wcsim_sandbox softwarecontainer_v1.3.1.sif
-```
-Then you can run `createWCSimFiles.py` with `-k`
-```
-python3 createWCSimFiles.py <other_options> -k
-```
-This produces the batch job scripts under `pjdir`, and batch job logs (if any) are produced at `pjout/` and `pjerr/`. The `-u` option is used with singularity to bypass the binding issue.
 
-### Batch job submission on cedar
-You need to run `createWCSimFiles.py` with `-d <account>`. If you do not know which RAP account is usable, follow the [instructions](https://docs.alliancecan.ca/wiki/Running_jobs#Accounts_and_projects) to check.
+### Options
 ```
-python3 createWCSimFiles.py <other_options> -d <account>
+ -h, --help: prints help message 
+ -p, --pid=: particle name (mu-, e-, etc.) 
+ -b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm 
+ -u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV 
+ -m, --cosmics: generate cosmic muon events 
+ -n, --nevs=: number of events per file 
+ -f, --nfiles=: number of files to be generated 
+ -s, --seed=: RNG seed used in this script 
+ -c, --cds: disable CDS in WCSim 
+ -wcsim: disable WCSim execution 
+ -mdt: disable MDT execution 
+ -fq: disable fiTQun execution 
+ -k, --sukap: submit batch jobs on sukap 
+ -d, --cedar=: submit batch jobs on cedar with specified RAP account 
+ -condor: submit condor jobs on lxplus
+ ```
+
+### Examples
+
+**1. Generate scripts only (Beam mode):**
+```bash
+python3 runSimulation.py -p mu- -b 100,30 -n 1000 -f 10
 ```
-This produces the batch job scripts under `sldir`, and batch job logs (if any) are produced at `slout/` and `slerr/`. 
+This generates 10 files for 100 MeV muons, 30cm from the wall. Macros are in mac/ and execution scripts in shell/. 
+
+**2. Submit jobs to Sukap:**
+Requires SOFTWARE_SANDBOX_DIR to be set. 
+```bash 
+python3 runSimulation.py -p e- -u 10,50 -n 1000 -f 100 -k
+```
+
+**3. Submit jobs to Cedar:**
+```bash
+python3 runSimulation.py -m -n 1000 -f 50 -d def-myaccount
+```
+
+**4. Submit jobs to Condor (LXPLUS):** 
+```bash 
+python3 runSimulation.py -p mu+ -b 200,0 -n 1000 -f 20 --condor
+```
+
+## Web Application
+A web interface is available to configure simulations, submit jobs, and monitor status.
+
+### Prerequisites
+Install the required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+### Starting the Server 
+Ensure you have sourced `setup.sh` first. Then start the server on the remote cluster: 
+```bash 
+uvicorn main:app --host 127.0.0.1 --port 8080
+```
+
+### Accessing via Browser
+Since the server runs on a remote cluster, use SSH tunneling to access it from your local machine:
+```bash
+ssh -L 8080:127.0.0.1:8080 user@remote_server
+```
+
+Open http://localhost:8080 in your web browser. 
+### Features 
+1. Configuration: Use the form to select particle type, mode (Beam/Uniform/Cosmics), energy, and execution steps (WCSim, MDT, fiTQun). 
+2. Submission: Select the target batch system (Sukap, Cedar, Condor) and click "Submit Simulation". The app runs the submission in the background. 
+3. Status Monitoring: Scroll down to the "Job Status" section. Select the batch system and click "Refresh" (or "Stop Refresh" to toggle auto-update) to view active jobs.
 
 ## Validation
 Two event display root macros are placed under `validation/`. They can be run with the container.
 
 ### EventDisplay.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.3.1.sif root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/\*.root\"\)
 ```
-This reads the files `out/wcsim_mu-_100MeV_30cm_*[0-9].root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
+This reads the files `out/*.root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
 
 ### EventDisplay_Compare.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.3.1.sif root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\",\"/mnt/out/wcsim_wCDS_mu-_100MeV_30cm_\*\[0-9\].root\"\,\"mu-\"\)
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/[files1].root\",\"/mnt/out/[files2].root\"\,\"tag\"\)
 ```
 This reads two different sets of files, aggregates all events to produce PMT hit histograms and calculate the ratio between the two sets of histograms.
 
 ### VertexDistribution.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.3.1.sif root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\"\)
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/\*.root\"\)
 ```
 This plots the vertex distribution of all the events.
 
 ### EventDisplay_SingleEvent.c
 ```
-singularity exec -B ./:/mnt softwarecontainer_v1.3.1.sif root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/wcsim_mu-_100MeV_30cm_\*\[0-9\].root\", evtID\)
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/\*.root\", evtID\)
 ```
 This produces event display for the `evtID`-th event.
 
@@ -87,7 +132,7 @@ This produces event display for the `evtID`-th event.
 [WatChMaL](https://github.com/WatChMaL) provides a python package to convert WCSim root output into numpy array.
 ```
 git clone https://github.com/WatChMaL/DataTools
-singularity run -B ./:/mnt softwarecontainer_v1.3.1.sif bash
+singularity run -B ./:/mnt $SOFTWARE_SIF_FILE bash
 source /opt/WCSim/build/this_wcsim.sh
 cd /mnt/DataTools
 export DATATOOLS=`pwd`
