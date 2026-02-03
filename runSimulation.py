@@ -7,9 +7,318 @@ import subprocess
 import string
 import random
 
+class SimulationConfig:
+    def __init__(self):
+        # Default parameters
+        self.wcsimdir = "/opt/WCSim"
+        self.geant4dir = "/opt/geant4"
+        self.wcsim_build_dir = "/opt/WCSim/build"
+        self.mntdir = "/mnt"
+        
+        self.curdir = os.getcwd()
+        
+        # Environment
+        self.siffile = os.environ.get("SOFTWARE_SIF_FILE")
+        self.sandbox = os.environ.get("SOFTWARE_SANDBOX_DIR")
+
+        self.rngseed = 20260129
+        self.ParticleName = "mu-"
+
+        self.TankRadius = 307.5926/2
+        self.TankHalfz = 271.4235/2
+
+        self.nevs = 1000
+        self.nfiles = 100
+        self.useCDS = True
+        self.runWCSim = True
+        self.runMDT = True
+        self.runFQ = True
+        
+        self.submit_sukap_jobs = False
+        self.submit_cedar_jobs = False
+        self.submit_condor_jobs = False
+        self.rapaccount = ""
+
+        self.useBeam = True
+        self.ParticleKE = 100
+        self.ParticleDirx = 0
+        self.ParticleDiry = 0
+        self.ParticleDirz = 1
+        self.ParticlePosx = 0
+        self.ParticlePosy = -42.47625
+        self.wallD = 0.
+        self.ParticlePosz = -(self.TankRadius - self.wallD)
+
+        self.useUniform = False
+        self.ParticleKELow = 0.
+        self.ParticleKEHigh = 2000.
+
+        self.useCosmics = False
+
+    def validate(self):
+        if not self.siffile and not self.sandbox:
+            print ("ERROR: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR not set.")
+            sys.exit(1)
+        if self.submit_sukap_jobs and not self.sandbox:
+            print ("ERROR: SOFTWARE_SANDBOX_DIR is needed for sukap submission.")
+            sys.exit(1)
+
+    def get_config_string(self):
+        wCDSstring = "_wCDS" if self.useCDS else ""
+        
+        beamstring = "Beam_%.0fMeV_%icm_" % (self.ParticleKE, int(self.wallD)) if self.useBeam else ""
+        
+        uniformstring = "Uniform_%.0f_%.0fMeV_" % (self.ParticleKELow, self.ParticleKEHigh) if self.useUniform else ""
+        
+        cosmicsstring = "Comsics_" if self.useCosmics else ""
+
+        configString = "%s_%s_%s%s" % (wCDSstring, self.ParticleName, beamstring, uniformstring)
+        if self.useCosmics:
+            configString = "%s_%s" % (wCDSstring, cosmicsstring)
+        
+        return configString
+
+class FileGenerator:
+    def __init__(self, config):
+        self.cfg = config
+        self.macdir = "mac"
+        self.outdir = "out"
+        self.logdir = "log"
+        self.shelldir = "shell"
+        self.figdir = "fig"
+        self.pjdir = "pjdir"
+        self.pjoutdir = "pjout"
+        self.pjerrdir = "pjerr"
+        self.sldir = "sldir"
+        self.sloutdir = "slout"
+        self.slerrdir = "slerr"
+        self.condordir = "condor_dir"
+        self.condorout = "condor_out"
+        self.condorerr = "condor_err"
+        self.condorlog = "condor_log"
+
+    def create_directories(self):
+        dirs = [self.macdir, self.outdir, self.logdir, self.shelldir, self.figdir]
+        if self.cfg.submit_sukap_jobs:
+            dirs.extend([self.pjdir, self.pjoutdir, self.pjerrdir])
+        if self.cfg.submit_cedar_jobs:
+            dirs.extend([self.sldir, self.sloutdir, self.slerrdir])
+        if self.cfg.submit_condor_jobs:
+            dirs.extend([self.condordir, self.condorout, self.condorerr, self.condorlog])
+
+        for d in dirs:
+            if not os.path.exists(d):
+                os.makedirs(d)
+
+    def generate_mac_files(self):
+        print ("Creating mac files for WCSim")
+        configString = self.cfg.get_config_string()
+        
+        wCDSmac = "" if self.cfg.useCDS else "#"
+        beammac = "" if self.cfg.useBeam else "#"
+        uniformmac = "" if self.cfg.useUniform else "#"
+        comsicsmac = "" if self.cfg.useCosmics else "#"
+
+        with open("template/WCTE.mac", 'r') as f:
+            macTemplate = string.Template(f.read())
+        with open("template/tuning_parameters.mac", 'r') as f:
+            tuningTemplate = string.Template(f.read())
+
+        random.seed(self.cfg.rngseed)
+
+        for i in range(self.cfg.nfiles):
+            macFile = "%s/wcsim%s%04i.mac" % (self.macdir, configString, i)
+            macseed = random.randrange(int(1e9))
+            
+            with open(macFile, 'w') as fo:
+                fo.write(macTemplate.substitute(
+                    wcsimdir=self.cfg.wcsimdir, 
+                    rngseed=macseed, 
+                    wCDSmac=wCDSmac, 
+                    beammac=beammac,
+                    uniformmac=uniformmac,
+                    comsicsmac=comsicsmac,
+                    ParticleName=self.cfg.ParticleName,
+                    ParticleKE=self.cfg.ParticleKE,
+                    ParticleDirx=self.cfg.ParticleDirx,
+                    ParticleDiry=self.cfg.ParticleDiry,
+                    ParticleDirz=self.cfg.ParticleDirz,
+                    ParticlePosx=self.cfg.ParticlePosx,
+                    ParticlePosy=self.cfg.ParticlePosy,
+                    ParticlePosz=self.cfg.ParticlePosz,
+                    ParticleKELow=self.cfg.ParticleKELow,
+                    ParticleKEHigh=self.cfg.ParticleKEHigh, 
+                    rmac=self.cfg.TankRadius, 
+                    zmac=self.cfg.TankHalfz,
+                    nevs=self.cfg.nevs,
+                    filename="%s/%s/wcsim%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
+                ))
+
+            tuningFile = "%s/tuning_parameters%s%04i.mac" % (self.macdir, configString, i)
+            with open(tuningFile, 'w') as fo:
+                fo.write(tuningTemplate.substitute(wcsimdir=self.cfg.wcsimdir))
+
+    def generate_shell_scripts(self):
+        print ("Creating shell scripts for simulation")
+        configString = self.cfg.get_config_string()
+        
+        cern_condor = "" if self.cfg.submit_condor_jobs else "#"
+        userns = "-u" if self.cfg.submit_sukap_jobs else ""
+        siffile = self.cfg.sandbox if self.cfg.submit_sukap_jobs else self.cfg.siffile
+        
+        runwcsim = "" if self.cfg.runWCSim else "#"
+        runmdt = "" if self.cfg.runMDT else "#"
+        runfq = "" if self.cfg.runFQ else "#"
+
+        with open("template/run.sh", 'r') as f:
+            shTemplate = string.Template(f.read())
+
+        for i in range(self.cfg.nfiles):
+            shFile = "%s/run%s%04i.sh" % (self.shelldir, configString, i)
+            wcsimfile = "%s/%s/wcsim%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
+            mdtfile = "%s/%s/mdt%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
+            fqfile = "%s/%s/fq%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
+            
+            with open(shFile, 'w') as fo:
+                fo.write(shTemplate.substitute(
+                    curdir=self.cfg.curdir,
+                    cern_condor=cern_condor, 
+                    userns=userns,
+                    mntdir=self.cfg.mntdir,
+                    siffile=siffile,
+                    runwcsim=runwcsim,
+                    runmdt=runmdt,
+                    runfq=runfq,
+                    macfile="%s/%s/wcsim%s%04i.mac" % (self.cfg.mntdir, self.macdir, configString, i),
+                    tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (self.cfg.mntdir, self.macdir, configString, i),
+                    logfile="%s/%s/run%s%04i.log" % (self.cfg.mntdir, self.logdir, configString, i),
+                    wcsimfile=wcsimfile, 
+                    nevs=self.cfg.nevs,
+                    mdtfile=mdtfile,
+                    fqfile=fqfile,
+                    rngseed=random.randrange(int(1e9))
+                ))
+
+class JobSubmitter:
+    def __init__(self, config, file_generator):
+        self.cfg = config
+        self.fgen = file_generator
+
+    def submit_sukap(self):
+        if not self.cfg.submit_sukap_jobs: return
+
+        configString = self.cfg.get_config_string()
+        print ("Submitting pjsub jobs on sukap")
+        
+        with open("template/pjsub.sh", 'r') as f:
+            shTemplate = string.Template(f.read())
+
+        for i in range(self.cfg.nfiles):
+            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+                while True:
+                    com = subprocess.Popen("pjstat | wc -l", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                    res, err = com.communicate()
+                    try:
+                        queueCount = int(res)
+                    except:
+                        queueCount = 9999
+                    if queueCount < 300:
+                        break
+                    time.sleep(10)
+
+                shFile = "%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
+                pjFile = "%s/pjsub%s%04i.sh" % (self.fgen.pjdir, configString, i)
+                pjout = "%s/pjsub%s%04i.out" % (self.fgen.pjoutdir, configString, i)
+                pjerr = "%s/pjsub%s%04i.err" % (self.fgen.pjerrdir, configString, i)
+                
+                with open(pjFile, 'w') as fo:
+                    fo.write(shTemplate.substitute(
+                        curdir=self.cfg.curdir,
+                        shFile=shFile,
+                        pjout=pjout,
+                        pjerr=pjerr
+                    ))
+
+                while True:
+                    com = subprocess.Popen("pjsub %s" % (pjFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                    res, err = com.communicate()
+                    if len(err) == 0:
+                        print (res)
+                        break
+                    print (err)
+                    time.sleep(1)
+
+    def submit_cedar(self):
+        if not self.cfg.submit_cedar_jobs: return
+        
+        configString = self.cfg.get_config_string()
+        print ("Creating slurm scripts for WCSim")
+        
+        with open("template/slurm_wcsim.sh", 'r') as f:
+            slTemplate = string.Template(f.read())
+            
+        siffile = self.cfg.siffile
+
+        for i in range(self.cfg.nfiles):
+            slFile = "%s/slurm%s%04i.sh" % (self.fgen.sldir, configString, i)
+            slout = "%s/slurm%s%04i" % (self.fgen.sloutdir, configString, i)
+            slerr = "%s/slurm%s%04i" % (self.fgen.slerrdir, configString, i)
+            
+            with open(slFile, 'w') as fo:
+                fo.write(slTemplate.substitute(
+                    account=self.cfg.rapaccount, 
+                    curdir=self.cfg.curdir, 
+                    mntdir=self.cfg.mntdir, 
+                    siffile=siffile, 
+                    sout=slout, 
+                    serr=slerr,
+                    shfile="%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
+                ))
+
+        print ("Submitting slurm jobs on cedar")
+        for i in range(self.cfg.nfiles):
+            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+                slFile = "%s/slurm%s%04i.sh" % (self.fgen.sldir, configString, i)
+                com = subprocess.Popen("sbatch %s" % (slFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                res, err = com.communicate()
+                if len(err) > 0:
+                    print (err)
+                    sys.exit(1)
+                else:
+                    print (res)
+
+    def submit_condor(self):
+        if not self.cfg.submit_condor_jobs: return
+
+        configString = self.cfg.get_config_string()
+        print ("Creating condor scripts")
+        
+        with open("template/condor_submit.sub", 'r') as f:
+            condorTemplate = string.Template(f.read())
+
+        for i in range(self.cfg.nfiles):
+            condorFile = "%s/condor%s%04i.sub" % (self.fgen.condordir, configString, i)
+            out = "%s/condor%s%04i" % (self.fgen.condorout, configString, i)
+            err = "%s/condor%s%04i" % (self.fgen.condorerr, configString, i)
+            log = "%s/condor%s%04i" % (self.fgen.condorlog, configString, i)
+            shfile = "%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
+            
+            with open(condorFile, 'w') as fo:
+                fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log))
+
+        print ("Submitting condor jobs on lxplus")
+        for i in range(self.cfg.nfiles):
+            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+                condorFile = "%s/condor%s%04i.sub" % (self.fgen.condordir, configString, i)
+                com = subprocess.Popen("module load lxbatch/eossubmit && condor_submit %s" % (condorFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                res, err = com.communicate()
+                if len(err) > 0:
+                    print (err)
+                    sys.exit(1)
+                else:
+                    print (res)
+
 def usage():
-    '''Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun
-    '''
     print ("Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")
     print ("Usage:")
     print ("runSimulation.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][--wcsim][--mdt][--fq][-k][-d <account>][--condor]")
@@ -32,67 +341,8 @@ def usage():
     print ("--condor: submit condor jobs on lxplus")
     print ("")
 
-def runSimulation():
-    '''Function to create mac files for WCSim'''
-
-    # make necessary directories
-    macdir = "mac"
-    outdir = "out"
-    logdir = "log"
-    shelldir = "shell"
-    figdir = "fig"
-
-    curdir = os.getcwd()
-
-    for dir in [macdir,outdir,logdir,shelldir,figdir]:
-        if (not os.path.exists(dir)):
-            os.makedirs(dir)
-
-    # default parameters
-    wcsimdir = "/opt/WCSim"
-    geant4dir="/opt/geant4"
-    wcsim_build_dir="/opt/WCSim/build"
-    mntdir="/mnt"
-
-    # Get container configuration from environment
-    siffile = os.environ.get("SOFTWARE_SIF_FILE")
-    sandbox = os.environ.get("SOFTWARE_SANDBOX_DIR")
-    if not siffile and not sandbox:
-        print ("ERROR: SOFTWARE_SIF_FILE and SOFTWARE_SANDBOX_DIR not set.")
-        sys.exit(1)
-
-    rngseed = 20260129
-    ParticleName = "mu-"
-
-    TankRadius = 307.5926/2
-    TankHalfz = 271.4235/2
-
-    nevs = 1000
-    nfiles = 100
-    useCDS = True
-    runWCSim = True
-    runMDT = True
-    runFQ = True
-    submit_sukap_jobs = False
-    submit_cedar_jobs = False
-    submit_condor_jobs = False
-    rapaccount = ""
-
-    useBeam = True
-    ParticleKE = 100
-    ParticleDirx = 0
-    ParticleDiry = 0
-    ParticleDirz = 1
-    ParticlePosx = 0
-    ParticlePosy = -42.47625
-    wallD = 0.
-    ParticlePosz= -(TankRadius-wallD)
-
-    useUniform = False
-    ParticleKELow = 0.
-    ParticleKEHigh = 2000.
-
-    useCosmics = False
+def main():
+    config = SimulationConfig()
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hckmp:n:f:s:d:b:u:",
@@ -110,288 +360,59 @@ def runSimulation():
             usage()
             sys.exit()
         if (opt in ("-p", "--pid")):
-            ParticleName = val.strip()
+            config.ParticleName = val.strip()
         if (opt in ("-b", "--beam")):
-            useBeam = True
-            useUniform = False
-            useCosmics = False
+            config.useBeam = True
+            config.useUniform = False
+            config.useCosmics = False
             vals = val.strip().split(",")
-            ParticleKE = float(vals[0])
-            wallD = float(vals[1])
-            ParticlePosz = -(TankRadius - wallD)
+            config.ParticleKE = float(vals[0])
+            config.wallD = float(vals[1])
+            config.ParticlePosz = -(config.TankRadius - config.wallD)
         if (opt in ("-u", "--uniform")):
-            useBeam = False
-            useUniform = True
-            useCosmics = False
+            config.useBeam = False
+            config.useUniform = True
+            config.useCosmics = False
             vals = val.strip().split(",")
-            ParticleKELow = float(vals[0])
-            ParticleKEHigh = float(vals[1])
+            config.ParticleKELow = float(vals[0])
+            config.ParticleKEHigh = float(vals[1])
         if (opt in ("-m", "--cosmics")):
-            useBeam = False
-            useUniform = False
-            useCosmics = True
+            config.useBeam = False
+            config.useUniform = False
+            config.useCosmics = True
         if (opt in ("-n", "--nevs")):
-            nevs = int(val.strip())
+            config.nevs = int(val.strip())
         if (opt in ("-f", "--nfiles")):
-            nfiles = int(val.strip())
+            config.nfiles = int(val.strip())
         if (opt in ("-s", "--seed")):
-            rngseed = int(val.strip())
+            config.rngseed = int(val.strip())
         if (opt in ("-c", "--cds")):
-            useCDS = False
+            config.useCDS = False
         if (opt == "--wcsim"):
-            runWCSim = False
+            config.runWCSim = False
         if (opt == "--mdt"):
-            runMDT = False
+            config.runMDT = False
         if (opt == "--fq"):
-            runFQ = False
+            config.runFQ = False
         if (opt in ("-k", "--sukap")):
-            submit_sukap_jobs = True
+            config.submit_sukap_jobs = True
         if (opt in ("-d", "--cedar")):
-            submit_cedar_jobs = True
-            rapaccount = val.strip()
+            config.submit_cedar_jobs = True
+            config.rapaccount = val.strip()
         if (opt == "--condor"):
-            submit_condor_jobs = True
+            config.submit_condor_jobs = True
 
-    if submit_sukap_jobs and not sandbox:
-        print ("ERROR: SOFTWARE_SANDBOX_DIR is needed for sukap submission.")
-        sys.exit(1)
+    config.validate()
 
-    wCDSstring = "_wCDS" if useCDS else ""
-    wCDSmac = "" if useCDS else "#"
-    random.seed(rngseed)
+    fgen = FileGenerator(config)
+    fgen.create_directories()
+    fgen.generate_mac_files()
+    fgen.generate_shell_scripts()
 
-    beamstring = "Beam_%.0fMeV_%icm_" % (ParticleKE,int(wallD)) if useBeam else ""
-    beammac = "" if useBeam else "#"
-
-    uniformstring = "Uniform_%.0f_%.0fMeV_" % (ParticleKELow,ParticleKEHigh) if useUniform else ""
-    uniformmac = "" if useUniform else "#"
-
-    cosmicsstring = "Comsics_" if useCosmics else ""
-    comsicsmac = "" if useCosmics else "#"
-
-    configString = "%s_%s_%s%s" % (wCDSstring,ParticleName,beamstring,uniformstring)
-    if useCosmics:
-        configString = "%s_%s" % (wCDSstring,cosmicsstring)
-    configString_TChain = configString
-    if ParticleName[-1]=="+":
-        configString_TChain= "%s_%s\\\\\\\\+_%s%s" % (wCDSstring,ParticleName[:-1],beamstring,uniformstring)
-
-
-    print ("Creating mac files for WCSim")
-    for i in range(nfiles):
-        fi = open("template/WCTE.mac",'r')
-        macLines = fi.read()
-        macTemplate = string.Template(macLines)
-        macFile = "%s/wcsim%s%04i.mac" % (macdir,configString,i)
-        fo = open(macFile, 'w')
-        macseed = random.randrange(int(1e9))
-        fo.write(macTemplate.substitute(wcsimdir=wcsimdir, rngseed=macseed, wCDSmac=wCDSmac, 
-                                        beammac=beammac,uniformmac=uniformmac,comsicsmac=comsicsmac,
-                                        ParticleName=ParticleName,ParticleKE=ParticleKE,
-                                        ParticleDirx=ParticleDirx,ParticleDiry=ParticleDiry,ParticleDirz=ParticleDirz,
-                                        ParticlePosx=ParticlePosx,ParticlePosy=ParticlePosy,ParticlePosz=ParticlePosz,
-                                        ParticleKELow=ParticleKELow,ParticleKEHigh=ParticleKEHigh, 
-                                        rmac=TankRadius, zmac=TankHalfz,
-                                        nevs=nevs,filename="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)))
-        fo.close()
-        fi.close()
-        fi = open("template/tuning_parameters.mac",'r')
-        macLines = fi.read()
-        macTemplate = string.Template(macLines)
-        macFile = "%s/tuning_parameters%s%04i.mac" % (macdir,configString,i)
-        fo = open(macFile, 'w')
-        fo.write(macTemplate.substitute(wcsimdir=wcsimdir))
-        fo.close()
-        fi.close()
-
-    cern_condor="" if submit_condor_jobs else "#"
-    userns="-u" if submit_sukap_jobs else ""
-    siffile=sandbox if submit_sukap_jobs else siffile
-    runwcsim="" if runWCSim else "#"
-    runmdt="" if runMDT else "#"
-    runfq="" if runFQ else "#"
-
-    print ("Creating shell scripts for simulation")
-    for i in range(nfiles):
-        fi = open("template/run.sh",'r')
-        shLines = fi.read()
-        shTemplate = string.Template(shLines)
-        shFile = "%s/run%s%04i.sh" % (shelldir,configString,i)
-        fo = open(shFile, 'w')
-        wcsimfile="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)
-        mdtfile="%s/%s/mdt%s%04i.root" % (mntdir,outdir,configString,i)
-        fqfile="%s/%s/fq%s%04i.root" % (mntdir,outdir,configString,i)
-        fo.write(shTemplate.substitute
-            (curdir=curdir,cern_condor=cern_condor, userns=userns,
-            mntdir=mntdir,siffile=siffile,
-            runwcsim=runwcsim,runmdt=runmdt,runfq=runfq,
-            macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
-            tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (mntdir,macdir,configString,i),
-            logfile="%s/%s/run%s%04i.log" % (mntdir,logdir,configString,i),
-            wcsimfile=wcsimfile, nevs=nevs,
-            mdtfile=mdtfile,
-            fqfile=fqfile,
-            rngseed=random.randrange(int(1e9))))
-        fo.close()
-        fi.close()
-
-    if submit_sukap_jobs :
-        pjdir = "pjdir"
-        pjoutdir = "pjout"
-        pjerrdir = "pjerr"
-        for dir in [pjdir,pjoutdir,pjerrdir]:
-            if (not os.path.exists(dir)):
-                os.makedirs(dir)
-
-        allFilesOK = False
-
-        while not allFilesOK:
-
-            job_id = []
-
-            print ("Submitting pjsub jobs on sukap")
-            for i in range(nfiles):
-                if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
-                    # wait until job count is small enough
-                    while True:
-                        com = subprocess.Popen("pjstat | wc -l" , shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-                        res, err = com.communicate()
-                        queueCount = int(res)
-                        if queueCount < 300:
-                            break
-                        time.sleep(10)
-
-                    fi = open("template/pjsub.sh",'r')
-                    shLines = fi.read()
-                    shTemplate = string.Template(shLines)
-                    shFile = "%s/run%s%04i.sh" % (shelldir,configString,i)
-                    pjFile = "%s/pjsub%s%04i.sh" % (pjdir,configString,i)
-                    pjout = "%s/pjsub%s%04i.out" % (pjoutdir,configString,i)
-                    pjerr = "%s/pjsub%s%04i.err" % (pjerrdir,configString,i)
-                    fo = open(pjFile, 'w')
-                    fo.write(shTemplate.substitute
-                        (curdir=curdir,shFile=shFile,pjout=pjout,pjerr=pjerr))
-                    fo.close()
-                    fi.close()
-
-                    # repeatedly submit job until success
-                    while True:
-                        com = subprocess.Popen("pjsub %s" % (pjFile), shell=True, 
-                                            stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                            close_fds=True)
-                        res, err = com.communicate()
-                        if (len(err) == 0):
-                            print (res)
-                            job_id.append([int(res.split()[-2]),i])
-                            break
-                        print (err)
-                        time.sleep(1)
-            
-            allFilesOK = True
-            # for i in range(len(job_id)):
-            #     # check if a job is completed
-            #     while True:
-            #         com = subprocess.Popen("pjstat %i | wc -l" % job_id[i][0], shell=True, stdout = subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-            #         res, err = com.communicate()
-            #         time.sleep(10)
-            #         print ("sleep for 10s")
-                    
-        # # Make validation plots
-        # if useBeam:
-        #     print("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain))
-        #     com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/EventDisplay.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString_TChain), shell=True, 
-        #                             stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-        #                             close_fds=True)
-        #     res, err = com.communicate()
-        #     if (len(err)>0):
-        #         print (err)
-        #         sys.exit(1)
-        #     else:
-        #         print (res)
-
-        # else:
-        #     com = subprocess.Popen("singularity exec -u -B ./:%s %s root -l -b -q %s/validation/VertexDistribution.c\(\\\"%s/%s/wcsim%s\*\[0-9\].root\\\"\)" % (mntdir,sandbox,mntdir,mntdir,outdir,configString), shell=True, 
-        #                             stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-        #                             close_fds=True)
-        #     res, err = com.communicate()
-        #     if (len(err)>0):
-        #         print (err)
-        #         sys.exit(1)
-        #     else:
-        #         print (res)
-
-    if submit_cedar_jobs :
-        sldir = "sldir"
-        sloutdir = "slout"
-        slerrdir = "slerr"
-        for dir in [sldir,sloutdir,slerrdir]:
-            if (not os.path.exists(dir)):
-                os.makedirs(dir)
-        print ("Creating slurm scripts for WCSim")
-        for i in range(nfiles):
-            fi = open("template/slurm_wcsim.sh",'r')
-            slLines = fi.read()
-            slTemplate = string.Template(slLines)
-            slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
-            slout = "%s/slurm%s%04i" % (sloutdir,configString,i)
-            slerr = "%s/slurm%s%04i" % (slerrdir,configString,i)
-            fo = open(slFile, 'w')
-            fo.write(slTemplate.substitute(account=rapaccount, curdir=curdir, mntdir=mntdir, siffile=siffile, sout=slout, serr=slerr,
-                                           shfile="%s/run%s%04i.sh" % (shelldir,configString,i)))
-            fo.close()
-            fi.close()
-
-        print ("Submitting slurm jobs on cedar")
-        for i in range(nfiles):
-            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
-                slFile = "%s/slurm%s%04i.sh" % (sldir,configString,i)
-                com = subprocess.Popen("sbatch %s" % (slFile), shell=True, 
-                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    close_fds=True)
-                res, err = com.communicate()
-                if (len(err) > 0):
-                    print (err)
-                    sys.exit(1)
-                else:
-                    print (res)
-
-    if submit_condor_jobs :
-        print ("Creating condor scripts")
-        condordir = "condor_dir"
-        condorout = "condor_out"
-        condorerr = "condor_err"
-        condorlog = "condor_log"
-        for dir in [condordir,condorout,condorerr,condorlog]:
-            if (not os.path.exists(dir)):
-                os.makedirs(dir)
-        for i in range(nfiles):
-            fi = open("template/condor_submit.sub",'r')
-            condorLines = fi.read()
-            condorTemplate = string.Template(condorLines)
-            condorFile = "%s/condor%s%04i.sub" % (condordir,configString,i)
-            fo = open(condorFile, 'w')
-            out="%s/condor%s%04i" % (condorout,configString,i)
-            err="%s/condor%s%04i" % (condorerr,configString,i)
-            log="%s/condor%s%04i" % (condorlog,configString,i)
-            shfile="%s/run%s%04i.sh" % (shelldir,configString,i)
-            fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log))
-            fo.close()
-            fi.close()
-        print ("Submitting condor jobs on lxplus")
-        for i in range(nfiles):
-            if (not os.path.exists("%s/wcsim%s%04i.root" % (outdir,configString,i))):
-                condorFile = "%s/condor%s%04i.sub" % (condordir,configString,i)
-                com = subprocess.Popen("module load lxbatch/eossubmit && condor_submit %s" % (condorFile), shell=True, 
-                                    stdout = subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    close_fds=True)
-                res, err = com.communicate()
-                if (len(err) > 0):
-                    print (err)
-                    sys.exit(1)
-                else:
-                    print (res)
-
-
+    submitter = JobSubmitter(config, fgen)
+    submitter.submit_sukap()
+    submitter.submit_cedar()
+    submitter.submit_condor()
 
 if __name__ == '__main__':
-    runSimulation()
+    main()
