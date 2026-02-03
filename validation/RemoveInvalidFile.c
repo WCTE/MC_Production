@@ -10,9 +10,10 @@ void RemoveInvalidFile(const char * fname, int nEv)
     else
     {
         TTree* t = (TTree*)f->Get("wcsimT");
+        if (!t) t = (TTree*)f->Get("fiTQun");
         if (!t || t->GetEntries()<nEv)
         {
-            std::cerr <<"There is a problem with the TTree wcsimT" <<std::endl;
+            std::cerr <<"There is a problem with the TTree wcsimT or fiTQun" <<std::endl;
             needRm = true;
         }
     }
