@@ -8,11 +8,11 @@ import string
 import random
 
 def usage():
-    '''Function to create mac, shell and batch job scripts for WCSim
+    '''Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun
     '''
-    print ("Function to create mac, shell and batch job scripts for WCSim")
+    print ("Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")
     print ("Usage:")
-    print ("runSimulation.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][-k][-d <account>]")
+    print ("runSimulation.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][--wcsim][--mdt][--fq][-k][-d <account>][--condor]")
     print ("")
     print ("Options:")
     print ("-h, --help: prints help message")
@@ -24,6 +24,9 @@ def usage():
     print ("-f, --nfiles=<val>: numbe of files to be generated")
     print ("-s, --seed=<val>: RNG seed used in this script")
     print ("-c, --cds: disable CDS in WCSim")
+    print ("--wcsim: disable WCSim execution")
+    print ("--mdt: disable MDT execution")
+    print ("--fq: disable fiTQun execution")
     print ("-k, --sukap: submit batch jobs on sukap")
     print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
     print ("--condor: submit condor jobs on lxplus")
@@ -67,6 +70,9 @@ def runSimulation():
     nevs = 1000
     nfiles = 100
     useCDS = True
+    runWCSim = True
+    runMDT = True
+    runFQ = True
     submit_sukap_jobs = False
     submit_cedar_jobs = False
     submit_condor_jobs = False
@@ -92,7 +98,8 @@ def runSimulation():
         opts, args = getopt.getopt(sys.argv[1:], "hckmp:n:f:s:d:b:u:",
                                    ["help", "pid=", "beam=", "uniform=", 
                                     "cosmics", "nevs=", "nfiles=",
-                                    "seed=", "cds", "sukap","cedar=","condor"])
+                                    "seed=", "cds", "wcsim", "mdt", "fq",
+                                    "sukap","cedar=","condor"])
     except getopt.GetoptError as err:
         print (str(err))
         usage()
@@ -131,6 +138,12 @@ def runSimulation():
             rngseed = int(val.strip())
         if (opt in ("-c", "--cds")):
             useCDS = False
+        if (opt == "--wcsim"):
+            runWCSim = False
+        if (opt == "--mdt"):
+            runMDT = False
+        if (opt == "--fq"):
+            runFQ = False
         if (opt in ("-k", "--sukap")):
             submit_sukap_jobs = True
         if (opt in ("-d", "--cedar")):
@@ -194,6 +207,9 @@ def runSimulation():
     cern_condor="" if submit_condor_jobs else "#"
     userns="-u" if submit_sukap_jobs else ""
     siffile=sandbox if submit_sukap_jobs else siffile
+    runwcsim="" if runWCSim else "#"
+    runmdt="" if runMDT else "#"
+    runfq="" if runFQ else "#"
 
     print ("Creating shell scripts for simulation")
     for i in range(nfiles):
@@ -202,15 +218,19 @@ def runSimulation():
         shTemplate = string.Template(shLines)
         shFile = "%s/run%s%04i.sh" % (shelldir,configString,i)
         fo = open(shFile, 'w')
+        wcsimfile="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i)
+        mdtfile="%s/%s/mdt%s%04i.root" % (mntdir,outdir,configString,i)
+        fqfile="%s/%s/fq%s%04i.root" % (mntdir,outdir,configString,i)
         fo.write(shTemplate.substitute
             (curdir=curdir,cern_condor=cern_condor, userns=userns,
             mntdir=mntdir,siffile=siffile,
+            runwcsim=runwcsim,runmdt=runmdt,runfq=runfq,
             macfile="%s/%s/wcsim%s%04i.mac" % (mntdir,macdir,configString,i),
             tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (mntdir,macdir,configString,i),
             logfile="%s/%s/run%s%04i.log" % (mntdir,logdir,configString,i),
-            wcsimfile="%s/%s/wcsim%s%04i.root" % (mntdir,outdir,configString,i), nevs=nevs,
-            mdtfile="%s/%s/mdt%s%04i.root" % (mntdir,outdir,configString,i),
-            fqfile="%s/%s/fq%s%04i.root" % (mntdir,outdir,configString,i),
+            wcsimfile=wcsimfile, nevs=nevs,
+            mdtfile=mdtfile,
+            fqfile=fqfile,
             rngseed=random.randrange(int(1e9))))
         fo.close()
         fi.close()

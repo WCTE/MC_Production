@@ -1,18 +1,10 @@
 # directories
-log/
-mac/
-out/
-shell/
-pjdir/
-pjout/
-pjerr/
-sldir/
-slout/
-slerr/
-condor_dir/
-condor_err/
-condor_log/
-condor_out/
+*log/
+*mac/
+*out/
+*shell/
+*dir/
+*err/
 .singularity/
 *sandbox/
 
@@ -21,3 +13,6 @@ condor_out/
 
 # pdf
 *.pdf
+
+# WCSim output
+geofile*.txt
