@@ -205,6 +205,26 @@ class JobSubmitter:
         self.cfg = config
         self.fgen = file_generator
 
+    def is_job_missing(self, i):
+        configString = self.cfg.get_config_string()
+        if self.cfg.runWCSim and not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+            return True
+        if self.cfg.runMDT and not os.path.exists("%s/mdt%s%04i.root" % (self.fgen.outdir, configString, i)):
+            return True
+        if self.cfg.runFQ and not os.path.exists("%s/fq%s%04i.root" % (self.fgen.outdir, configString, i)):
+            return True
+        return False
+
+    def scan_jobs(self):
+        n_to_submit = 0
+        n_skipped = 0
+        for i in range(self.cfg.nfiles):
+            if self.is_job_missing(i):
+                n_to_submit += 1
+            else:
+                n_skipped += 1
+        return n_to_submit, n_skipped
+
     def submit_sukap(self):
         if not self.cfg.submit_sukap_jobs: return
 
@@ -214,8 +234,11 @@ class JobSubmitter:
         with open("template/pjsub.sh", 'r') as f:
             shTemplate = string.Template(f.read())
 
+        n_submitted = 0
+        n_skipped = 0
         for i in range(self.cfg.nfiles):
-            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+            if self.is_job_missing(i):
+                n_submitted += 1
                 while True:
                     com = subprocess.Popen("pjstat | wc -l", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                     res, err = com.communicate()
@@ -248,6 +271,9 @@ class JobSubmitter:
                         break
                     print (err)
                     time.sleep(1)
+            else:
+                n_skipped += 1
+        print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))
 
     def submit_cedar(self):
         if not self.cfg.submit_cedar_jobs: return
@@ -277,8 +303,11 @@ class JobSubmitter:
                 ))
 
         print ("Submitting slurm jobs on cedar")
+        n_submitted = 0
+        n_skipped = 0
         for i in range(self.cfg.nfiles):
-            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+            if self.is_job_missing(i):
+                n_submitted += 1
                 slFile = "%s/slurm%s%04i.sh" % (self.fgen.sldir, configString, i)
                 com = subprocess.Popen("sbatch %s" % (slFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                 res, err = com.communicate()
@@ -287,6 +316,9 @@ class JobSubmitter:
                     sys.exit(1)
                 else:
                     print (res)
+            else:
+                n_skipped += 1
+        print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))
 
     def submit_condor(self):
         if not self.cfg.submit_condor_jobs: return
@@ -308,8 +340,11 @@ class JobSubmitter:
                 fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log))
 
         print ("Submitting condor jobs on lxplus")
+        n_submitted = 0
+        n_skipped = 0
         for i in range(self.cfg.nfiles):
-            if not os.path.exists("%s/wcsim%s%04i.root" % (self.fgen.outdir, configString, i)):
+            if self.is_job_missing(i):
+                n_submitted += 1
                 condorFile = "%s/condor%s%04i.sub" % (self.fgen.condordir, configString, i)
                 com = subprocess.Popen("module load lxbatch/eossubmit && condor_submit %s" % (condorFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                 res, err = com.communicate()
@@ -318,6 +353,9 @@ class JobSubmitter:
                     sys.exit(1)
                 else:
                     print (res)
+            else:
+                n_skipped += 1
+        print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))
 
 class JobStatus:
     def __init__(self, config):

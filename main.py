@@ -99,6 +99,10 @@ async def submit_simulation(
     # We pass the logic to background_tasks so the web request returns immediately
     submitter = runSimulation.JobSubmitter(config, fgen)
     
+    # Scan jobs to get counts for the response message
+    n_submit, n_skip = submitter.scan_jobs()
+    msg_suffix = f" (Will submit {n_submit} jobs, Skipped {n_skip} existing)"
+    
     if config.submit_sukap_jobs:
         background_tasks.add_task(submitter.submit_sukap)
     if config.submit_cedar_jobs:
@@ -108,7 +112,7 @@ async def submit_simulation(
         
     return {
         "status": "success", 
-        "message": f"Simulation configured for {particle_name} ({energy} MeV). Job submission started in background.",
+        "message": f"Simulation configured for {particle_name}. Job submission started in background.{msg_suffix}",
         "config_string": config.get_config_string()
     }
 
