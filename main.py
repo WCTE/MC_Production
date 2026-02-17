@@ -123,7 +123,7 @@ async def submit_simulation(
         
     return {
         "status": "success", 
-        "message": f"Simulation configured for {particle_name}. Job submission started in background.{msg_suffix}",
+        "message": f"Simulation configured for {particle_name}. Job submission to ({batch_system}) started in background.{msg_suffix}",
         "config_string": config.get_config_string()
     }
 
