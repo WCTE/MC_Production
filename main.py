@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 import runSimulation
 import os
 import sys
+import io
+from contextlib import redirect_stdout
 
 # Check Environment Variables on startup
 if not os.environ.get("SOFTWARE_SIF_FILE") and not os.environ.get("SOFTWARE_SANDBOX_DIR"):
@@ -141,3 +143,26 @@ async def get_job_status(batch_system: str = "none"):
     
     status_checker = runSimulation.JobStatus(config)
     return status_checker.get_jobs()
+
+@app.post("/kill")
+async def kill_all_jobs(batch_system: str = Form("none")):
+    config = runSimulation.SimulationConfig()
+    
+    if batch_system == "sukap":
+        config.submit_sukap_jobs = True
+    elif batch_system == "cedar":
+        config.submit_cedar_jobs = True
+    elif batch_system == "condor":
+        config.submit_condor_jobs = True
+    else:
+        return {"status": "error", "message": "Invalid batch system selected."}
+
+    status_checker = runSimulation.JobStatus(config)
+    
+    # Capture the output of the kill_jobs function
+    f = io.StringIO()
+    with redirect_stdout(f):
+        status_checker.kill_jobs()
+    output = f.getvalue()
+    
+    return {"status": "success", "message": output}

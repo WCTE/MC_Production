@@ -457,6 +457,87 @@ class JobStatus:
             print ("Error getting condor jobs: %s" % str(e))
         return jobs
 
+    def kill_jobs(self):
+        if self.cfg.submit_sukap_jobs:
+            self._kill_sukap_jobs()
+        if self.cfg.submit_cedar_jobs:
+            self._kill_cedar_jobs()
+        if self.cfg.submit_condor_jobs:
+            self._kill_condor_jobs()
+
+    def _kill_sukap_jobs(self):
+        print("Killing sukap jobs...")
+        try:
+            com = subprocess.Popen("pjstat", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                lines = res.decode('utf-8').split('\n')
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) > 4 and parts[4] == self.user:
+                        job_id = parts[0]
+                        print(f"Killing sukap job {job_id}")
+                        kill_com = subprocess.Popen(f"pjdel {job_id}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                        kill_res, kill_err = kill_com.communicate()
+                        if kill_res:
+                            print(kill_res.decode('utf-8'))
+                        if kill_err:
+                            print(kill_err.decode('utf-8'))
+        except Exception as e:
+            print(f"Error killing sukap jobs: {e}")
+
+    def _kill_cedar_jobs(self):
+        print(f"Killing cedar jobs for user {self.user}...")
+        try:
+            com = subprocess.Popen(f"scancel -u {self.user}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                print(res.decode('utf-8'))
+            if err:
+                print(err.decode('utf-8'))
+        except Exception as e:
+            print(f"Error killing cedar jobs: {e}")
+
+    def _kill_condor_jobs(self):
+        print(f"Killing condor jobs for user {self.user}...")
+        try:
+            com = subprocess.Popen("condor_q -global", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+            res, err = com.communicate()
+            if res:
+                lines = res.decode('utf-8').split('\n')
+                schedds_with_user_jobs = set()
+                current_schedd = None
+
+                for line in lines:
+                    if line.startswith("-- Schedd"):
+                        # Example: -- Schedd: bigbird03.cern.ch (137.138.105.78) : <137.138.105.78:9618?...
+                        parts = line.split()
+                        if len(parts) > 2:
+                            current_schedd = parts[2] # bigbird03.cern.ch
+                    else:
+                        job_parts = line.split()
+                        if len(job_parts) > 0 and job_parts[0] == self.user:
+                            if current_schedd:
+                                schedds_with_user_jobs.add(current_schedd)
+
+                if not schedds_with_user_jobs:
+                    print("No condor jobs found for user.")
+                    return
+
+                for schedd in schedds_with_user_jobs:
+                    print(f"Killing jobs on schedd: {schedd}")
+                    kill_command = f"condor_rm -name {schedd} {self.user}"
+                    print(f"Executing: {kill_command}")
+                    kill_com = subprocess.Popen(kill_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                    kill_res, kill_err = kill_com.communicate()
+                    if kill_res:
+                        print(kill_res.decode('utf-8'))
+                    if kill_err:
+                        print(kill_err.decode('utf-8'))
+
+        except Exception as e:
+            print(f"Error killing condor jobs: {e}")
+
 def usage():
     print ("Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")
     print ("Usage:")

@@ -130,6 +130,7 @@
                                 <option value="condor">Condor</option>
                             </select>
                             <button id="statusBtn" class="btn btn-info text-white">Refresh</button>
+                            <button id="killBtn" class.split("btn btn-danger text-white")>Kill All</button>
                         </div>
                     </div>
                     
@@ -237,6 +238,47 @@
                 this.classList.add('btn-danger');
                 updateStatus();
                 refreshInterval = setInterval(updateStatus, 10000);
+            }
+        });
+
+        const killBtn = document.getElementById('killBtn');
+        killBtn.addEventListener('click', async function() {
+            const batchSystem = document.getElementById('statusBatchSystem').value;
+            
+            if (!confirm(`Are you sure you want to kill all your jobs on ${batchSystem}? This action cannot be undone.`)) {
+                return;
+            }
+
+            // Optional: clear any running refresh interval
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+                statusBtn.textContent = 'Refresh';
+                statusBtn.classList.remove('btn-danger');
+                statusBtn.classList.add('btn-info');
+            }
+
+            const statusContent = document.getElementById('statusContent');
+            statusContent.textContent = `Sending kill signal to ${batchSystem}...`;
+
+            try {
+                const formData = new FormData();
+                formData.append('batch_system', batchSystem);
+
+                const response = await fetch('/kill', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusContent.textContent = "Kill command output:\n" + data.message;
+                } else {
+                    throw new Error(data.detail || 'Failed to execute kill command.');
+                }
+            } catch (error) {
+                statusContent.textContent = 'Error: ' + error.message;
             }
         });
     </script>
