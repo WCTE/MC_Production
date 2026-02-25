@@ -1,136 +1,239 @@
 # MC_Production
-These scripts are intended to use in the WCTE MC production with software container.
 
-## Setup
-First clone this repository.
-```
-git clone https://github.com/WCTE/MC_Production.git
-cd MC_Production
-```
-Then get the software container image according to [instructions](https://github.com/WCTE/SoftwareContainer).
+Scripts and tools for WCTE Monte Carlo production using software containers. This repository provides a command-line interface and a web application to configure, generate, and submit simulation jobs.
 
-### Environment Setup
-Before running any scripts, you must set up the environment variables using `setup.sh`.
+## Prerequisites
 
-If you only have a Singularity Image File (.sif):
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/WCTE/MC_Production.git
+    cd MC_Production
+    ```
+
+2.  **Obtain the Software Container:**
+    Follow instructions at [WCTE/SoftwareContainer](https://github.com/WCTE/SoftwareContainer) to get the Singularity Image File (.sif).
+
+## Environment Setup
+
+Before running any scripts, you must configure the environment variables using `setup.sh`. This script must be **sourced**.
+
+### Basic Setup (SIF only)
 ```bash
 source setup.sh /path/to/softwarecontainer.sif
 ```
 
-If you need a sandbox (required for Sukap submission): 
-```bash 
-# If sandbox exists 
-source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir 
-# If you need to build the sandbox from the SIF 
+### Sandbox Setup (Required for Sukap)
+If you are submitting jobs to Sukap, a sandbox directory is required.
+
+```bash
+# If sandbox already exists
+source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir
+
+# To build the sandbox from the SIF (first time setup)
 source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir --build
 ```
-## runSimulation.py
-This script generates the mac files, shell scripts, and handles batch job submission for WCSim, MDT, and fiTQun.
 
+## Simulation CLI (`runSimulation.py`)
+
+The main script `runSimulation.py` handles the generation of macros, shell scripts, and batch job submissions for the WCSim -> MDT -> fiTQun workflow.
+
+### Usage
 ```bash
 python3 runSimulation.py [options]
 ```
 
 ### Options
-```
- -h, --help: prints help message 
- -p, --pid=: particle name (mu-, e-, etc.) 
- -b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm 
- -u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV 
- -m, --cosmics: generate cosmic muon events 
- -n, --nevs=: number of events per file 
- -f, --nfiles=: number of files to be generated 
- -s, --seed=: RNG seed used in this script 
- -c, --cds: disable CDS in WCSim 
- -wcsim: disable WCSim execution 
- -mdt: disable MDT execution 
- -fq: disable fiTQun execution 
- -k, --sukap: submit batch jobs on sukap 
- -d, --cedar=: submit batch jobs on cedar with specified RAP account 
- -condor: submit condor jobs on lxplus
- ```
+
+| Option | Long Option | Description |
+| :--- | :--- | :--- |
+| `-h` | `--help` | Print help message. |
+| `-p` | `--pid` | Particle name (e.g., `mu-`, `e-`). Default: `mu-`. |
+| `-b` | `--beam` | **Beam Mode**: `KE,WallDistance`. KE in MeV, distance from vertex to blacksheet in cm. |
+| `-u` | `--uniform` | **Uniform Mode**: `KE_Low,KE_High`. Random vertices with uniform KE in MeV. |
+| `-m` | `--cosmics` | **Cosmics Mode**: Generate cosmic muon events. |
+| `-n` | `--nevs` | Number of events per file. Default: 1000. |
+| `-f` | `--nfiles` | Number of files to generate. Default: 100. |
+| `-s` | `--seed` | RNG seed. Default: 20260129. |
+| `-c` | `--cds` | Disable CDS in WCSim. |
+| | `--wcsim` | **Disable** WCSim execution step. |
+| | `--mdt` | **Disable** MDT execution step. |
+| | `--fq` | **Disable** fiTQun execution step. |
+| `-k` | `--sukap` | Submit batch jobs to **Sukap** (Requires Sandbox). Optional agrument: queue name (default: all).|
+| `-d` | `--cedar` | Submit batch jobs to **Cedar** with specified RAP account. |
+| | `--condor` | Submit batch jobs to **HTCondor** (LXPLUS). Optional agrument: JobFlavour (default: tomorrow)|
 
 ### Examples
 
 **1. Generate scripts only (Beam mode):**
+Generates 10 files for 100 MeV muons, 30cm from the wall.
 ```bash
 python3 runSimulation.py -p mu- -b 100,30 -n 1000 -f 10
 ```
-This generates 10 files for 100 MeV muons, 30cm from the wall. Macros are in mac/ and execution scripts in shell/. 
 
 **2. Submit jobs to Sukap:**
-Requires SOFTWARE_SANDBOX_DIR to be set. 
+Requires `SOFTWARE_SANDBOX_DIR` to be set via `setup.sh`.
 ```bash 
 python3 runSimulation.py -p e- -u 10,50 -n 1000 -f 100 -k
 ```
 
-**3. Submit jobs to Cedar:**
+**3. Submit to Cedar:**
 ```bash
 python3 runSimulation.py -m -n 1000 -f 50 -d def-myaccount
 ```
 
-**4. Submit jobs to Condor (LXPLUS):** 
+**4. Submit to HTCondor (LXPLUS):** 
 ```bash 
 python3 runSimulation.py -p mu+ -b 200,0 -n 1000 -f 20 --condor
 ```
 
 ## Web Application
-A web interface is available to configure simulations, submit jobs, and monitor status.
+
+A FastAPI-based web interface is available to configure simulations, submit jobs, and monitor status.
 
 ### Prerequisites
-Install the required Python packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Starting the Server 
-Ensure you have sourced `setup.sh` first. Then start the server on the remote cluster: 
+### Running the Server
+Ensure `setup.sh` is sourced, then start the server:
 ```bash 
 uvicorn main:app --host 127.0.0.1 --port 8080
 ```
-
-### Accessing via Browser
-Since the server runs on a remote cluster, use SSH tunneling to access it from your local machine:
+If running on a remote cluster, use SSH tunneling to access it locally:
 ```bash
 ssh -L 8080:127.0.0.1:8080 user@remote_server
 ```
+Access at: `http://localhost:8080`
 
-Open http://localhost:8080 in your web browser. 
 ### Features 
-1. Configuration: Use the form to select particle type, mode (Beam/Uniform/Cosmics), energy, and execution steps (WCSim, MDT, fiTQun). 
-2. Submission: Select the target batch system (Sukap, Cedar, Condor) and click "Submit Simulation". The app runs the submission in the background. 
-3. Status Monitoring: Scroll down to the "Job Status" section. Select the batch system and click "Refresh" (or "Stop Refresh" to toggle auto-update) to view active jobs.
 
-## Validation
-Two event display root macros are placed under `validation/`. They can be run with the container.
+- **Configuration**: Form-based setup for particle type, energy, and mode.
+- **Submission**: Background task submission to Sukap, Cedar, or Condor.
+- **Monitoring**: View active job status (wraps `pjstat`, `squeue`, `condor_q`).
+- **Control**: Kill running jobs via the interface.
+
+## Validation Tools
+
+Root macros located in `validation/` can be run using the container.
 
 ### EventDisplay.c
+Aggregates events from files to produce PMT hit histograms (charges and times) in `fig/`.
+```bash
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/out/\*.root\"\)
 ```
-singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay.c\(\"/mnt/\*.root\"\)
-```
-This reads the files `out/*.root` and aggregates all events to produce PMT hit histograms of charges and times under `fig/`.
-
-### EventDisplay_Compare.c
-```
-singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/[files1].root\",\"/mnt/out/[files2].root\"\,\"tag\"\)
-```
-This reads two different sets of files, aggregates all events to produce PMT hit histograms and calculate the ratio between the two sets of histograms.
-
-### VertexDistribution.c
-```
-singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/\*.root\"\)
-```
-This plots the vertex distribution of all the events.
 
 ### EventDisplay_SingleEvent.c
+Produces event display plots for a specific event ID.
+```bash
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/*.root\",evtID\)
 ```
-singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_SingleEvent.c\(\"/mnt/out/\*.root\", evtID\)
-```
-This produces event display for the `evtID`-th event.
 
-## [DataTools](https://github.com/WatChMaL/DataTools)
-[WatChMaL](https://github.com/WatChMaL) provides a python package to convert WCSim root output into numpy array.
+### EventDisplay_Compare.c
+Compares two sets of output files, calculating ratios of histograms.
+```bash
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/EventDisplay_Compare.c\(\"/mnt/out/[files1].root\",\"/mnt/out/[files2].root\"\,\"tag\"\)
 ```
+
+### VertexDistribution.c
+Plots the vertex distribution of all events.
+```bash
+singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/VertexDistribution.c\(\"/mnt/out/*.root\"\)
+```
+
+## Technical Documentation
+
+### Code Structure
+
+- **`runSimulation.py`**: The core orchestration script.
+    - `SimulationConfig`: Stores configuration parameters (physics, file counts, toggles).
+    - `FileGenerator`: Creates the directory structure (`mac/`, `shell/`, `out/`, etc.) and generates WCSim macros and shell execution scripts based on templates.
+    - `JobSubmitter`: Handles the logic for submitting jobs to different batch systems (Sukap/pjsub, Cedar/Slurm, LXPLUS/Condor). It checks for existing output files to avoid re-running completed jobs.
+    - `JobStatus`: (Used by Web App) Parses command line output from batch system tools to track or kill jobs.
+
+- **`main.py`**: FastAPI application serving the web interface.
+    - `submit_simulation`: Handles POST requests from the form, maps inputs to `SimulationConfig`, and triggers background job submission.
+    - `get_job_status`: Queries the batch system status via `JobStatus`.
+
+- **`setup.sh`**: Bash script to export necessary environment variables (`SOFTWARE_SIF_FILE`, `SOFTWARE_SANDBOX_DIR`) and optionally build the Singularity sandbox.
+
+### Extending the Simulation
+
+To enable more extensive simulation setups (e.g., changing physics lists, modifying geometry parameters, or using complex particle sources), follow these steps:
+
+1.  **Modify the Template (`template/WCTE.mac`)**:
+    This file contains the WCSim macro commands. You can add new commands found in the WCSim Repository.
+    *   *Example*: To control the dark rate dynamically, change `/DarkRate/SetDarkRate 1.0 kHz` to `/DarkRate/SetDarkRate $darkRate kHz`.
+
+2.  **Update `SimulationConfig` (`runSimulation.py`)**:
+    Add a new member variable in the `__init__` method to store the configuration value.
+    ```python
+    self.darkRate = 1.0 # Default value
+    ```
+
+3.  **Update `FileGenerator` (`runSimulation.py`)**:
+    In the `generate_mac_files` method, update the `macTemplate.substitute(...)` call to include the new variable mapping.
+    ```python
+    fo.write(macTemplate.substitute(
+        ...
+        darkRate=self.cfg.darkRate,
+        ...
+    ))
+    ```
+
+4.  **Update CLI (`runSimulation.py`)**:
+    Add the new argument to the `argparse` setup in `main()` (e.g., `parser.add_argument(...)`) to allow users to set it via command line.
+
+#### Example: Particle Generation
+The default template uses the Geant4 General Particle Source (GPS).
+```bash
+/mygen/generator gps
+/gps/particle $ParticleName
+```
+The `$ParticleName` variable is replaced by the `-p` argument (default: `mu-`). You can use any particle name supported by Geant4 (e.g., `e-`, `gamma`, `pi0`, `proton`, `opticalphoton`).
+
+To use a different generator (e.g., for supernova events or laser calibration), you would modify `template/WCTE.mac` to change `/mygen/generator` and add the relevant configuration commands, potentially creating new variables for the `FileGenerator` to populate.
+
+### Extending the Web Interface
+
+To expose new configuration options (added to `SimulationConfig` as described above) in the web interface:
+
+1.  **Update `templates/index.html`**:
+    Add a new HTML input field inside the configuration form. Ensure the `name` attribute matches the argument name you will use in `main.py`.
+    ```html
+    <div class="form-group">
+        <label for="dark_rate">Dark Rate (kHz):</label>
+        <input type="number" class="form-control" id="dark_rate" name="dark_rate" value="1.0" step="0.1">
+    </div>
+    ```
+
+2.  **Update `main.py`**:
+    Modify the `submit_simulation` function to accept the new form field as an argument and assign it to the configuration object.
+    ```python
+    @app.post("/submit")
+    async def submit_simulation(
+        # ... existing arguments ...
+        dark_rate: float = Form(1.0), # Add this line
+    ):
+        # ...
+        config = runSimulation.SimulationConfig()
+        # ...
+        config.darkRate = dark_rate # Map to config
+        # ...
+    ```
+
+### Output Directory Structure
+- `mac/`: Generated WCSim macros.
+- `shell/`: Generated execution shell scripts.
+- `out/`: Root output files (WCSim, MDT, fiTQun).
+- `log/`: Execution logs.
+- `fig/`: Validation plots.
+- `pjdir/`, `sldir/`, `condor_dir/`: Batch submission scripts.
+- `pjout/`, `slout/`, `condor_out/`: Batch system standard output.
+
+## DataTools
+WatChMaL provides a python package to convert WCSim root output into numpy array.
+```bash
 git clone https://github.com/WatChMaL/DataTools
 singularity run -B ./:/mnt $SOFTWARE_SIF_FILE bash
 source /opt/WCSim/build/this_wcsim.sh
