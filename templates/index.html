@@ -93,7 +93,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label">Batch System</label>
-                        <select name="batch_system" class="form-select">
+                        <select name="batch_system" class="form-select" id="batchSystemSelect" onchange="updateBatchOptions()">
                             <option value="none">None (Generate Scripts Only)</option>
                             <option value="sukap">Sukap</option>
                             <option value="cedar">Cedar</option>
@@ -101,9 +101,9 @@
                         </select>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">RAP Account (Cedar only)</label>
-                        <input type="text" name="rap_account" class="form-control" placeholder="def-...">
+                    <div class="mb-3 d-none" id="batchOptionsContainer">
+                        <label class="form-label" id="batchOptionsLabel">Batch Options</label>
+                        <input type="text" name="rap_account" id="batchOptionsInput" class="form-control">
                     </div>
 
                     <button type="submit" id="submitBtn" class="btn btn-primary w-100">Submit Simulation</button>
@@ -144,6 +144,38 @@
     </div>
 
     <script>
+        function updateBatchOptions() {
+            const system = document.getElementById('batchSystemSelect').value;
+            const container = document.getElementById('batchOptionsContainer');
+            const label = document.getElementById('batchOptionsLabel');
+            const input = document.getElementById('batchOptionsInput');
+
+            if (system === 'none') {
+                container.classList.add('d-none');
+                input.disabled = true;
+            } else {
+                container.classList.remove('d-none');
+                input.disabled = false;
+                
+                if (system === 'sukap') {
+                    label.textContent = 'Queue Name';
+                    input.name = 'sukap_queue';
+                    input.value = 'all';
+                    input.placeholder = 'all';
+                } else if (system === 'cedar') {
+                    label.textContent = 'RAP Account';
+                    input.name = 'rap_account';
+                    input.value = '';
+                    input.placeholder = 'def-...';
+                } else if (system === 'condor') {
+                    label.textContent = 'Job Flavor';
+                    input.name = 'condor_queue';
+                    input.value = 'tomorrow';
+                    input.placeholder = 'tomorrow';
+                }
+            }
+        }
+
         function toggleMode() {
             const mode = document.querySelector('input[name="mode"]:checked').value;
             const beamInputs = document.getElementById('beamInputs');
@@ -281,6 +313,9 @@
                 statusContent.textContent = 'Error: ' + error.message;
             }
         });
+
+        // Initialize state
+        updateBatchOptions();
     </script>
 </body>
 </html>

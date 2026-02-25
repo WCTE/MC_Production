@@ -40,6 +40,8 @@ async def submit_simulation(
     nfiles: int = Form(100),
     batch_system: str = Form("none"), # none, sukap, cedar, condor
     rap_account: str = Form(""),
+    sukap_queue: str = Form("all"),
+    condor_queue: str = Form("tomorrow"),
     seed: int = Form(20260129),
     # Boolean flags: Default to False so that if unchecked (sending nothing), they are False.
     # The HTML form will have them checked by default, sending 'true'.
@@ -93,11 +95,13 @@ async def submit_simulation(
         if not sandbox:
              raise HTTPException(status_code=400, detail="Configuration Error: SOFTWARE_SANDBOX_DIR is required for Sukap submission.")
         config.submit_sukap_jobs = True
+        config.sukap_queue = sukap_queue
     elif batch_system == "cedar":
         config.submit_cedar_jobs = True
         config.rapaccount = rap_account
     elif batch_system == "condor":
         config.submit_condor_jobs = True
+        config.condor_queue = condor_queue
         
     # Generate Files
     try:
