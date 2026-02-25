@@ -281,7 +281,7 @@ class JobSubmitter:
         configString = self.cfg.get_config_string()
         print ("Creating slurm scripts for WCSim")
         
-        with open("template/slurm_wcsim.sh", 'r') as f:
+        with open("template/slurm.sh", 'r') as f:
             slTemplate = string.Template(f.read())
             
         siffile = self.cfg.siffile
@@ -299,7 +299,7 @@ class JobSubmitter:
                     siffile=siffile, 
                     sout=slout, 
                     serr=slerr,
-                    shfile="%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
+                    shFile="%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
                 ))
 
         print ("Submitting slurm jobs on cedar")
