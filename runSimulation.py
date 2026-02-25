@@ -266,14 +266,12 @@ class JobSubmitter:
                         rscgrp=self.cfg.sukap_queue
                     ))
 
-                while True:
-                    com = subprocess.Popen("pjsub %s" % (pjFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-                    res, err = com.communicate()
-                    if len(err) == 0:
-                        print (res)
-                        break
-                    print (err)
-                    time.sleep(1)
+                com = subprocess.Popen("pjsub %s" % (pjFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+                res, err = com.communicate()
+                if len(err) > 0:
+                    raise RuntimeError("Sukap submission failed: %s" % err.decode('utf-8'))
+                else:
+                    print (res.decode('utf-8'))
             else:
                 n_skipped += 1
         print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))
@@ -315,10 +313,9 @@ class JobSubmitter:
                 com = subprocess.Popen("sbatch %s" % (slFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                 res, err = com.communicate()
                 if len(err) > 0:
-                    print (err)
-                    sys.exit(1)
+                    raise RuntimeError("Cedar submission failed: %s" % err.decode('utf-8'))
                 else:
-                    print (res)
+                    print (res.decode('utf-8'))
             else:
                 n_skipped += 1
         print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))
@@ -352,10 +349,9 @@ class JobSubmitter:
                 com = subprocess.Popen("module load lxbatch/eossubmit && condor_submit %s" % (condorFile), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
                 res, err = com.communicate()
                 if len(err) > 0:
-                    print (err)
-                    sys.exit(1)
+                    raise RuntimeError("Condor submission failed: %s" % err.decode('utf-8'))
                 else:
-                    print (res)
+                    print (res.decode('utf-8'))
             else:
                 n_skipped += 1
         print ("Submitted %d jobs. Skipped %d jobs due to existing files." % (n_submitted, n_skipped))

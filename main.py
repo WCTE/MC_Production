@@ -29,7 +29,6 @@ async def read_root(request: Request):
 
 @app.post("/submit")
 async def submit_simulation(
-    background_tasks: BackgroundTasks,
     particle_name: str = Form(...),
     mode: str = Form("beam"),
     energy: float = Form(100),
@@ -112,24 +111,26 @@ async def submit_simulation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File Generation Failed: {str(e)}")
 
-    # Submit Jobs (Background Task)
-    # We pass the logic to background_tasks so the web request returns immediately
+    # Submit Jobs
     submitter = runSimulation.JobSubmitter(config, fgen)
     
     # Scan jobs to get counts for the response message
     n_submit, n_skip = submitter.scan_jobs()
-    msg_suffix = f" (Will submit {n_submit} jobs, Skipped {n_skip} existing)"
+    msg_suffix = f" (Submitted {n_submit} jobs, Skipped {n_skip} existing)"
     
-    if config.submit_sukap_jobs:
-        background_tasks.add_task(submitter.submit_sukap)
-    if config.submit_cedar_jobs:
-        background_tasks.add_task(submitter.submit_cedar)
-    if config.submit_condor_jobs:
-        background_tasks.add_task(submitter.submit_condor)
+    try:
+        if config.submit_sukap_jobs:
+            submitter.submit_sukap()
+        if config.submit_cedar_jobs:
+            submitter.submit_cedar()
+        if config.submit_condor_jobs:
+            submitter.submit_condor()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
         
     return {
         "status": "success", 
-        "message": f"Simulation configured for {particle_name}. Job submission to ({batch_system}) started in background.{msg_suffix}",
+        "message": f"Simulation configured for {particle_name}. Job submission to ({batch_system}) completed.{msg_suffix}",
         "config_string": config.get_config_string()
     }
 
