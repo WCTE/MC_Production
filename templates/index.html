@@ -104,6 +104,11 @@
                     <div class="mb-3 d-none" id="batchOptionsContainer">
                         <label class="form-label" id="batchOptionsLabel">Batch Options</label>
                         <input type="text" name="rap_account" id="batchOptionsInput" class="form-control">
+                        <select id="condorFlavorSelect" class="form-select d-none">
+                            {% for flavour in condor_flavours %}
+                            <option value="{{ flavour }}" {% if flavour == 'tomorrow' %}selected{% endif %}>{{ flavour }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <button type="submit" id="submitBtn" class="btn btn-primary w-100">Submit Simulation</button>
@@ -149,13 +154,19 @@
             const container = document.getElementById('batchOptionsContainer');
             const label = document.getElementById('batchOptionsLabel');
             const input = document.getElementById('batchOptionsInput');
+            const select = document.getElementById('condorFlavorSelect');
+
+            // Reset visibility and state
+            input.classList.remove('d-none');
+            input.disabled = false;
+            select.classList.add('d-none');
+            select.disabled = true;
 
             if (system === 'none') {
                 container.classList.add('d-none');
                 input.disabled = true;
             } else {
                 container.classList.remove('d-none');
-                input.disabled = false;
                 
                 if (system === 'sukap') {
                     label.textContent = 'Queue Name';
@@ -169,9 +180,12 @@
                     input.placeholder = 'def-...';
                 } else if (system === 'condor') {
                     label.textContent = 'Job Flavor';
-                    input.name = 'condor_queue';
-                    input.value = 'tomorrow';
-                    input.placeholder = 'tomorrow';
+                    // Switch to select input
+                    input.classList.add('d-none');
+                    input.disabled = true;
+                    select.classList.remove('d-none');
+                    select.disabled = false;
+                    select.name = 'condor_queue';
                 }
             }
         }

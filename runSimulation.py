@@ -8,6 +8,16 @@ import string
 import random
 import getpass
 
+CONDOR_FLAVOURS = [
+    "espresso",     # 20 minutes
+    "microcentury", # 1 hour
+    "longlunch",    # 2 hours
+    "workday",      # 8 hours
+    "tomorrow",     # 1 day
+    "testmatch",    # 3 days
+    "nextweek"      # 1 week
+]
+
 class SimulationConfig:
     def __init__(self):
         # Default parameters
@@ -554,7 +564,7 @@ def main():
     parser.add_argument('--fq', action='store_true', help='disable fiTQun execution')
     parser.add_argument('-k', '--sukap', nargs='?', const='all', default=None, help='submit batch jobs on sukap. Optional: queue name (default: all)')
     parser.add_argument('-d', '--cedar', help='submit batch jobs on cedar with specified RAP account')
-    parser.add_argument('--condor', nargs='?', const='tomorrow', default=None, help='submit batch jobs on lxplus. Optional: JobFlavour (default: tomorrow)')
+    parser.add_argument('--condor', nargs='?', const='tomorrow', default=None, choices=CONDOR_FLAVOURS, help='submit batch jobs on lxplus. Optional: JobFlavour (default: tomorrow)')
 
     args = parser.parse_args()
 

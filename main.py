@@ -25,7 +25,7 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "condor_flavours": runSimulation.CONDOR_FLAVOURS})
 
 @app.post("/submit")
 async def submit_simulation(
@@ -99,6 +99,8 @@ async def submit_simulation(
         config.submit_cedar_jobs = True
         config.rapaccount = rap_account
     elif batch_system == "condor":
+        if condor_queue not in runSimulation.CONDOR_FLAVOURS:
+            raise HTTPException(status_code=400, detail=f"Invalid Condor JobFlavour. Must be one of: {', '.join(runSimulation.CONDOR_FLAVOURS)}")
         config.submit_condor_jobs = True
         config.condor_queue = condor_queue
         
