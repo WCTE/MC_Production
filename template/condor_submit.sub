@@ -10,6 +10,6 @@ error      = ${err}.err
 log        = ${log}.log
 
 # Choose runtime environment
-+JobFlavour = "tomorrow"
++JobFlavour = "$JobFlavour"
 
 queue 1

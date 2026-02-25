@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import time
 import sys
-import getopt
+import argparse
 import os
 import subprocess
 import string
@@ -39,6 +39,8 @@ class SimulationConfig:
         self.submit_cedar_jobs = False
         self.submit_condor_jobs = False
         self.rapaccount = ""
+        self.sukap_queue = "all"
+        self.condor_queue = "tomorrow"
 
         self.useBeam = True
         self.ParticleKE = 100
@@ -260,7 +262,8 @@ class JobSubmitter:
                         curdir=self.cfg.curdir,
                         shFile=shFile,
                         pjout=pjout,
-                        pjerr=pjerr
+                        pjerr=pjerr,
+                        rscgrp=self.cfg.sukap_queue
                     ))
 
                 while True:
@@ -337,7 +340,7 @@ class JobSubmitter:
             shfile = "%s/run%s%04i.sh" % (self.fgen.shelldir, configString, i)
             
             with open(condorFile, 'w') as fo:
-                fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log))
+                fo.write(condorTemplate.substitute(shfile=shfile, out=out, err=err, log=log, JobFlavour=self.cfg.condor_queue))
 
         print ("Submitting condor jobs on lxplus")
         n_submitted = 0
@@ -538,89 +541,73 @@ class JobStatus:
         except Exception as e:
             print(f"Error killing condor jobs: {e}")
 
-def usage():
-    print ("Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")
-    print ("Usage:")
-    print ("runSimulation.py [-h] [-p <particleName>][-b <KE,wallDistance>][-u <KElow,KEhigh>][-n <events>][-f <files>][-s <seed>][-c][--wcsim][--mdt][--fq][-k][-d <account>][--condor]")
-    print ("")
-    print ("Options:")
-    print ("-h, --help: prints help message")
-    print ("-p, --pid=<name>: particle name (mu-, e-, etc.)")
-    print ("-b, --beam=<KE,wallDistance>: generate beam with KE in MeV, wallDistance (distance from vertex to blacksheet behind) in cm")
-    print ("-u, --uniform=<KElow,KEhigh>: generate random vertices with uniform KE in MeV")
-    print ("-m, --cosmics: generate cosmic muon events")
-    print ("-n, --nevs=<val>: number of events per file")
-    print ("-f, --nfiles=<val>: numbe of files to be generated")
-    print ("-s, --seed=<val>: RNG seed used in this script")
-    print ("-c, --cds: disable CDS in WCSim")
-    print ("--wcsim: disable WCSim execution")
-    print ("--mdt: disable MDT execution")
-    print ("--fq: disable fiTQun execution")
-    print ("-k, --sukap: submit batch jobs on sukap")
-    print ("-d, --cedar=<account>: submit batch jobs on cedar with specified RAP account")
-    print ("--condor: submit condor jobs on lxplus")
-    print ("")
-
 def main():
     config = SimulationConfig()
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hckmp:n:f:s:d:b:u:",
-                                   ["help", "pid=", "beam=", "uniform=", 
-                                    "cosmics", "nevs=", "nfiles=",
-                                    "seed=", "cds", "wcsim", "mdt", "fq",
-                                    "sukap","cedar=","condor"])
-    except getopt.GetoptError as err:
-        print (str(err))
-        usage()
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description="Function to create mac, shell and batch job scripts for WCSim, MDT and fiTQun")
+    parser.add_argument('-p', '--pid', help='particle name (mu-, e-, etc.)')
+    parser.add_argument('-b', '--beam', help='generate beam with KE in MeV, wallDistance in cm (e.g. 100,0)')
+    parser.add_argument('-u', '--uniform', help='generate random vertices with uniform KE in MeV (e.g. 0,2000)')
+    parser.add_argument('-m', '--cosmics', action='store_true', help='generate cosmic muon events')
+    parser.add_argument('-n', '--nevs', type=int, help='number of events per file')
+    parser.add_argument('-f', '--nfiles', type=int, help='number of files to be generated')
+    parser.add_argument('-s', '--seed', type=int, help='RNG seed used in this script')
+    parser.add_argument('-c', '--cds', action='store_true', help='disable CDS in WCSim')
+    parser.add_argument('--wcsim', action='store_true', help='disable WCSim execution')
+    parser.add_argument('--mdt', action='store_true', help='disable MDT execution')
+    parser.add_argument('--fq', action='store_true', help='disable fiTQun execution')
+    parser.add_argument('-k', '--sukap', nargs='?', const='all', default=None, help='submit batch jobs on sukap. Optional: queue name (default: all)')
+    parser.add_argument('-d', '--cedar', help='submit batch jobs on cedar with specified RAP account')
+    parser.add_argument('--condor', nargs='?', const='tomorrow', default=None, help='submit batch jobs on lxplus. Optional: JobFlavour (default: tomorrow)')
 
-    for opt, val in opts:
-        if (opt in ("-h", "--help")):
-            usage()
-            sys.exit()
-        if (opt in ("-p", "--pid")):
-            config.ParticleName = val.strip()
-        if (opt in ("-b", "--beam")):
-            config.useBeam = True
-            config.useUniform = False
-            config.useCosmics = False
-            vals = val.strip().split(",")
-            config.ParticleKE = float(vals[0])
-            config.wallD = float(vals[1])
-            config.ParticlePosz = -(config.TankRadius - config.wallD)
-        if (opt in ("-u", "--uniform")):
-            config.useBeam = False
-            config.useUniform = True
-            config.useCosmics = False
-            vals = val.strip().split(",")
-            config.ParticleKELow = float(vals[0])
-            config.ParticleKEHigh = float(vals[1])
-        if (opt in ("-m", "--cosmics")):
-            config.useBeam = False
-            config.useUniform = False
-            config.useCosmics = True
-        if (opt in ("-n", "--nevs")):
-            config.nevs = int(val.strip())
-        if (opt in ("-f", "--nfiles")):
-            config.nfiles = int(val.strip())
-        if (opt in ("-s", "--seed")):
-            config.rngseed = int(val.strip())
-        if (opt in ("-c", "--cds")):
-            config.useCDS = False
-        if (opt == "--wcsim"):
-            config.runWCSim = False
-        if (opt == "--mdt"):
-            config.runMDT = False
-        if (opt == "--fq"):
-            config.runFQ = False
-        if (opt in ("-k", "--sukap")):
-            config.submit_sukap_jobs = True
-        if (opt in ("-d", "--cedar")):
-            config.submit_cedar_jobs = True
-            config.rapaccount = val.strip()
-        if (opt == "--condor"):
-            config.submit_condor_jobs = True
+    args = parser.parse_args()
+
+    if args.pid:
+        config.ParticleName = args.pid
+    if args.beam:
+        config.useBeam = True
+        config.useUniform = False
+        config.useCosmics = False
+        vals = args.beam.strip().split(",")
+        config.ParticleKE = float(vals[0])
+        config.wallD = float(vals[1])
+        config.ParticlePosz = -(config.TankRadius - config.wallD)
+    if args.uniform:
+        config.useBeam = False
+        config.useUniform = True
+        config.useCosmics = False
+        vals = args.uniform.strip().split(",")
+        config.ParticleKELow = float(vals[0])
+        config.ParticleKEHigh = float(vals[1])
+    if args.cosmics:
+        config.useBeam = False
+        config.useUniform = False
+        config.useCosmics = True
+    if args.nevs is not None:
+        config.nevs = args.nevs
+    if args.nfiles is not None:
+        config.nfiles = args.nfiles
+    if args.seed is not None:
+        config.rngseed = args.seed
+    if args.cds:
+        config.useCDS = False
+    if args.wcsim:
+        config.runWCSim = False
+    if args.mdt:
+        config.runMDT = False
+    if args.fq:
+        config.runFQ = False
+    if args.sukap is not None:
+        config.submit_sukap_jobs = True
+        if args.sukap != 'all':
+            config.sukap_queue = args.sukap
+    if args.cedar:
+        config.submit_cedar_jobs = True
+        config.rapaccount = args.cedar
+    if args.condor is not None:
+        config.submit_condor_jobs = True
+        if args.condor != 'tomorrow':
+            config.condor_queue = args.condor
 
     config.validate()
 
