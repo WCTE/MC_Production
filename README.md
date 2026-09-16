@@ -35,7 +35,7 @@ source setup.sh /path/to/softwarecontainer.sif /path/to/sandbox_dir --build
 
 ## Simulation CLI (`runSimulation.py`)
 
-The main script `runSimulation.py` handles the generation of macros, shell scripts, and batch job submissions for the WCSim -> MDT -> fiTQun workflow.
+The main script `runSimulation.py` handles the generation of macros, shell scripts, and batch job submissions for the WCSim -> MDT -> Flatten -> fiTQun workflow.
 
 ### Usage
 ```bash
@@ -57,9 +57,11 @@ python3 runSimulation.py [options]
 | `-c` | `--cds` | Disable CDS in WCSim. |
 | | `--wcsim` | **Disable** WCSim execution step. |
 | | `--mdt` | **Disable** MDT execution step. |
+| | `--flatten` | **Disable** flattening execution step. |
 | | `--fq` | **Disable** fiTQun execution step. |
 | `-k` | `--sukap` | Submit batch jobs to **Sukap** (Requires Sandbox). Optional agrument: queue name (default: all).|
 | `-d` | `--cedar` | Submit batch jobs to **Cedar** with specified RAP account. |
+| `-w` | `--wcsimBuildDir` | Path to the WCSim build directory to source inside the container (`<dir>/this_wcsim.sh`) and to load `libWCSimRoot.so` from for flattening. Default: `/opt/WCSim/build`. |
 | | `--condor` | Submit batch jobs to **HTCondor** (LXPLUS). Optional agrument: JobFlavour (default: tomorrow)|
 
 ### Examples
@@ -112,6 +114,15 @@ Access at: `http://localhost:8080`
 - **Submission**: Background task submission to Sukap, Cedar, or Condor.
 - **Monitoring**: View active job status (wraps `pjstat`, `squeue`, `condor_q`).
 - **Control**: Kill running jobs via the interface.
+
+## Flattening
+
+`validation/flatten_wcsim.C` flattens a WCSim/MDT output file into a simple, uproot-readable "hits" tree (charge, time, PMT position, per-event truth - see the macro's own header comment for the full branch list) with the same format as the WCTE data. `runSimulation.py` now runs it automatically as part of the per-job shell script, right after the WCSim and MDT steps, using the particle name and MDT-status already known from the job configuration rather than reading it back from the file:
+
+- the raw WCSim output is flattened with `isMDT=0` into `flattened_files/without_MDT/<ParticleName>/`
+- the MDT-processed output is flattened with `isMDT=1` into `flattened_files/with_MDT/<ParticleName>/`
+
+Both steps can be disabled with `--flatten`; the MDT one is also skipped automatically whenever `--mdt` disables the MDT step itself (there would be no MDT file to flatten).
 
 ## Validation Tools
 
@@ -226,6 +237,8 @@ To expose new configuration options (added to `SimulationConfig` as described ab
 - `mac/`: Generated WCSim macros.
 - `shell/`: Generated execution shell scripts.
 - `out/`: Root output files (WCSim, MDT, fiTQun).
+- `flattened_files/without_MDT/<ParticleName>/`: Flattened raw WCSim output (not MDT-processed).
+- `flattened_files/with_MDT/<ParticleName>/`: Flattened MDT-processed output.
 - `log/`: Execution logs.
 - `fig/`: Validation plots.
 - `pjdir/`, `sldir/`, `condor_dir/`: Batch submission scripts.

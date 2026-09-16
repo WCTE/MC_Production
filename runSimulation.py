@@ -43,6 +43,7 @@ class SimulationConfig:
         self.useCDS = True
         self.runWCSim = True
         self.runMDT = True
+        self.runFlatten = True
         self.runFQ = True
         
         self.submit_sukap_jobs = False
@@ -99,6 +100,7 @@ class FileGenerator:
         self.logdir = "log"
         self.shelldir = "shell"
         self.figdir = "fig"
+        self.flatdir = "flattened_files"
         self.pjdir = "pjdir"
         self.pjoutdir = "pjout"
         self.pjerrdir = "pjerr"
@@ -110,8 +112,23 @@ class FileGenerator:
         self.condorerr = "condor_err"
         self.condorlog = "condor_log"
 
+    def flatten_filenames(self, i):
+        """Local (host-relative) paths of the flattened outputs for job i -
+        same basenames as the raw wcsim/mdt files, filed under
+        flattened_files/without_MDT/<ParticleName>/ and
+        flattened_files/with_MDT/<ParticleName>/ respectively.
+        """
+        configString = self.cfg.get_config_string()
+        wcsim_base = "wcsim%s%04i" % (configString, i)
+        mdt_base = "mdt%s%04i" % (configString, i)
+        flat_nomdt = "%s/without_MDT/%s/%s_flat.root" % (self.flatdir, self.cfg.ParticleName, wcsim_base)
+        flat_mdt = "%s/with_MDT/%s/%s_flat.root" % (self.flatdir, self.cfg.ParticleName, mdt_base)
+        return flat_nomdt, flat_mdt
+
     def create_directories(self):
         dirs = [self.macdir, self.outdir, self.logdir, self.shelldir, self.figdir]
+        dirs.append(os.path.join(self.flatdir, "without_MDT", self.cfg.ParticleName))
+        dirs.append(os.path.join(self.flatdir, "with_MDT", self.cfg.ParticleName))
         if self.cfg.submit_sukap_jobs:
             dirs.extend([self.pjdir, self.pjoutdir, self.pjerrdir])
         if self.cfg.submit_cedar_jobs:
@@ -181,6 +198,8 @@ class FileGenerator:
         
         runwcsim = "" if self.cfg.runWCSim else "#"
         runmdt = "" if self.cfg.runMDT else "#"
+        runflattennomdt = "" if self.cfg.runFlatten else "#"
+        runflattenwithmdt = "" if (self.cfg.runFlatten and self.cfg.runMDT) else "#"
         runfq = "" if self.cfg.runFQ else "#"
         sourcePath = self.cfg.wcsim_build_dir+"/this_wcsim.sh"
 
@@ -192,18 +211,26 @@ class FileGenerator:
             wcsimfile = "%s/%s/wcsim%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
             mdtfile = "%s/%s/mdt%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
             fqfile = "%s/%s/fq%s%04i.root" % (self.cfg.mntdir, self.outdir, configString, i)
-            
+            flat_nomdt_local, flat_mdt_local = self.flatten_filenames(i)
+            flatnomdtfile = "%s/%s" % (self.cfg.mntdir, flat_nomdt_local)
+            flatmdtfile = "%s/%s" % (self.cfg.mntdir, flat_mdt_local)
+
             with open(shFile, 'w') as fo:
                 fo.write(shTemplate.substitute(
                     curdir=self.cfg.curdir,
-                    cern_condor=cern_condor, 
+                    cern_condor=cern_condor,
                     userns=userns,
                     sourcePath = sourcePath,
+                    wcsimbuilddir=self.cfg.wcsim_build_dir,
                     mntdir=self.cfg.mntdir,
                     siffile=siffile,
                     runwcsim=runwcsim,
                     runmdt=runmdt,
+                    runflattennomdt=runflattennomdt,
+                    runflattenwithmdt=runflattenwithmdt,
                     runfq=runfq,
+                    flatnomdtfile=flatnomdtfile,
+                    flatmdtfile=flatmdtfile,
                     macfile="%s/%s/wcsim%s%04i.mac" % (self.cfg.mntdir, self.macdir, configString, i),
                     tuningfile="%s/%s/tuning_parameters%s%04i.mac" % (self.cfg.mntdir, self.macdir, configString, i),
                     logfile="%s/%s/run%s%04i.log" % (self.cfg.mntdir, self.logdir, configString, i),
@@ -225,6 +252,12 @@ class JobSubmitter:
             return True
         if self.cfg.runMDT and not os.path.exists("%s/mdt%s%04i.root" % (self.fgen.outdir, configString, i)):
             return True
+        if self.cfg.runFlatten:
+            flat_nomdt_local, flat_mdt_local = self.fgen.flatten_filenames(i)
+            if not os.path.exists(flat_nomdt_local):
+                return True
+            if self.cfg.runMDT and not os.path.exists(flat_mdt_local):
+                return True
         if self.cfg.runFQ and not os.path.exists("%s/fq%s%04i.root" % (self.fgen.outdir, configString, i)):
             return True
         return False
@@ -563,6 +596,7 @@ def main():
     parser.add_argument('-c', '--cds', action='store_true', help='disable CDS in WCSim')
     parser.add_argument('--wcsim', action='store_true', help='disable WCSim execution')
     parser.add_argument('--mdt', action='store_true', help='disable MDT execution')
+    parser.add_argument('--flatten', action='store_true', help='disable flattening execution')
     parser.add_argument('--fq', action='store_true', help='disable fiTQun execution')
     parser.add_argument('-k', '--sukap', nargs='?', const='all', default=None, help='submit batch jobs on sukap. Optional: queue name (default: all)')
     parser.add_argument('-d', '--cedar', help='submit batch jobs on cedar with specified RAP account')
@@ -604,6 +638,8 @@ def main():
         config.runWCSim = False
     if args.mdt:
         config.runMDT = False
+    if args.flatten:
+        config.runFlatten = False
     if args.fq:
         config.runFQ = False
     if args.sukap is not None:
