@@ -124,6 +124,8 @@ Access at: `http://localhost:8080`
 
 Both steps can be disabled with `--flatten`; the MDT one is also skipped automatically whenever `--mdt` disables the MDT step itself (there would be no MDT file to flatten).
 
+This copy of the macro loads `libWCSimRoot.so` by bare name rather than a `$WCSIM_BUILD_DIR/lib/...` path, relying on `LD_LIBRARY_PATH` already being set correctly by `source $sourcePath` (the same `this_wcsim.sh` sourced for the WCSim/MDT steps) - this works regardless of whether a build tree keeps its library under `<build>/lib`, `<build>/install/lib`, or elsewhere, so `-w`/`--wcsimBuildDir` only needs to point at a directory containing `this_wcsim.sh`.
+
 ## Validation Tools
 
 Root macros located in `validation/` can be run using the container.

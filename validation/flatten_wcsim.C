@@ -16,7 +16,14 @@
 // index into trig->GetCherenkovHitTimes() like raw WCSim - using the wrong
 // interpretation silently collapses hit_track_id onto ~1 track per event
 // (small track-id values misread as small, "successful" array indices).
-R__LOAD_LIBRARY($WCSIM_BUILD_DIR/lib/libWCSimRoot.so)
+// Loaded by bare name (not a $WCSIM_BUILD_DIR/lib/... path): run.sh already
+// sources this_wcsim.sh before calling this macro, which exports
+// LD_LIBRARY_PATH to wherever this specific build actually put the library
+// (e.g. <build>/install/lib for an installed layout, <build>/src for an
+// in-tree one) - the same lookup WCSim's own executable already relies on.
+// A hardcoded .../lib/ subpath under WCSIM_BUILD_DIR breaks for build trees
+// that don't happen to use that exact layout.
+R__LOAD_LIBRARY(libWCSimRoot.so)
 #include <map>
 #include <set>
 #include <string>

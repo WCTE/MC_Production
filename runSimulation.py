@@ -221,7 +221,6 @@ class FileGenerator:
                     cern_condor=cern_condor,
                     userns=userns,
                     sourcePath = sourcePath,
-                    wcsimbuilddir=self.cfg.wcsim_build_dir,
                     mntdir=self.cfg.mntdir,
                     siffile=siffile,
                     runwcsim=runwcsim,
