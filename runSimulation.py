@@ -182,6 +182,7 @@ class FileGenerator:
         runwcsim = "" if self.cfg.runWCSim else "#"
         runmdt = "" if self.cfg.runMDT else "#"
         runfq = "" if self.cfg.runFQ else "#"
+        sourcePath = self.cfg.wcsim_build_dir+"/this_wcsim.sh"
 
         with open("template/run.sh", 'r') as f:
             shTemplate = string.Template(f.read())
@@ -197,6 +198,7 @@ class FileGenerator:
                     curdir=self.cfg.curdir,
                     cern_condor=cern_condor, 
                     userns=userns,
+                    sourcePath = sourcePath,
                     mntdir=self.cfg.mntdir,
                     siffile=siffile,
                     runwcsim=runwcsim,
@@ -564,6 +566,7 @@ def main():
     parser.add_argument('--fq', action='store_true', help='disable fiTQun execution')
     parser.add_argument('-k', '--sukap', nargs='?', const='all', default=None, help='submit batch jobs on sukap. Optional: queue name (default: all)')
     parser.add_argument('-d', '--cedar', help='submit batch jobs on cedar with specified RAP account')
+    parser.add_argument('-w', '--wcsimBuildDir', help='path to WCSim build directory')
     parser.add_argument('--condor', nargs='?', const='tomorrow', default=None, choices=CONDOR_FLAVOURS, help='submit batch jobs on lxplus. Optional: JobFlavour (default: tomorrow)')
 
     args = parser.parse_args()
@@ -614,6 +617,8 @@ def main():
         config.submit_condor_jobs = True
         if args.condor != 'tomorrow':
             config.condor_queue = args.condor
+    if args.wcsimBuildDir:
+        config.wcsim_build_dir = args.wcsimBuildDir
 
     config.validate()
 
