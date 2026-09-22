@@ -24,6 +24,11 @@ class SimulationConfig:
         self.wcsimdir = "/opt/WCSim"
         self.geant4dir = "/opt/geant4"
         self.wcsim_build_dir = "/opt/WCSim/build"
+        # None: use the container's own MDT ($MDTROOT as set by /opt/entrypoint.sh).
+        # Otherwise: an MDT checkout already built inside this same container
+        # (e.g. with rebuild_and_source_mdt.sh), whose envMDT.sh is sourced
+        # before the MDT step.
+        self.mdt_dir = None
         self.mntdir = "/mnt"
         
         self.curdir = os.getcwd()
@@ -76,6 +81,13 @@ class SimulationConfig:
         if self.submit_sukap_jobs and not self.sandbox:
             print ("ERROR: SOFTWARE_SANDBOX_DIR is needed for sukap submission.")
             sys.exit(1)
+        if self.mdt_dir and self.runMDT:
+            # Only checked on the host: a path that exists only inside the
+            # container (e.g. under /opt) can't be seen from here, hence a
+            # warning rather than an error.
+            app = os.path.join(self.mdt_dir, "app/application/appWCTESingleEvent")
+            if not os.path.exists(app):
+                print ("WARNING: %s not found - build MDT first (rebuild_and_source_mdt.sh), or the MDT step of every job will fail." % app)
 
     def get_config_string(self):
         wCDSstring = "_wCDS" if self.useCDS else ""
@@ -202,6 +214,12 @@ class FileGenerator:
         runflattenwithmdt = "" if (self.cfg.runFlatten and self.cfg.runMDT) else "#"
         runfq = "" if self.cfg.runFQ else "#"
         sourcePath = self.cfg.wcsim_build_dir+"/this_wcsim.sh"
+        # envMDT.sh sets MDTROOT=`pwd`, so it has to be sourced from inside the
+        # MDT checkout; it also needs WCSIM_BUILD_DIR, i.e. must come after
+        # $sourcePath. Nothing is compiled here - the build already lives on disk.
+        sourceMDT = "cd %s && source ./envMDT.sh && cd - > /dev/null && " % self.cfg.mdt_dir if self.cfg.mdt_dir else ""
+        print ("  WCSim sourced from: %s" % sourcePath)
+        print ("  MDT sourced from:   %s" % (self.cfg.mdt_dir + "/envMDT.sh" if self.cfg.mdt_dir else "container default ($MDTROOT set by /opt/entrypoint.sh)"))
 
         with open("template/run.sh", 'r') as f:
             shTemplate = string.Template(f.read())
@@ -221,6 +239,7 @@ class FileGenerator:
                     cern_condor=cern_condor,
                     userns=userns,
                     sourcePath = sourcePath,
+                    sourceMDT = sourceMDT,
                     mntdir=self.cfg.mntdir,
                     siffile=siffile,
                     runwcsim=runwcsim,
@@ -600,6 +619,7 @@ def main():
     parser.add_argument('-k', '--sukap', nargs='?', const='all', default=None, help='submit batch jobs on sukap. Optional: queue name (default: all)')
     parser.add_argument('-d', '--cedar', help='submit batch jobs on cedar with specified RAP account')
     parser.add_argument('-w', '--wcsimBuildDir', help='path to WCSim build directory')
+    parser.add_argument('--mdtDir', help='path to an already-built MDT checkout to use instead of the container one')
     parser.add_argument('--condor', nargs='?', const='tomorrow', default=None, choices=CONDOR_FLAVOURS, help='submit batch jobs on lxplus. Optional: JobFlavour (default: tomorrow)')
 
     args = parser.parse_args()
@@ -654,6 +674,8 @@ def main():
             config.condor_queue = args.condor
     if args.wcsimBuildDir:
         config.wcsim_build_dir = args.wcsimBuildDir
+    if args.mdtDir:
+        config.mdt_dir = os.path.abspath(args.mdtDir)
 
     config.validate()
 
