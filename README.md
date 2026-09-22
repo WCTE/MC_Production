@@ -62,6 +62,7 @@ python3 runSimulation.py [options]
 | `-k` | `--sukap` | Submit batch jobs to **Sukap** (Requires Sandbox). Optional agrument: queue name (default: all).|
 | `-d` | `--cedar` | Submit batch jobs to **Cedar** with specified RAP account. |
 | `-w` | `--wcsimBuildDir` | Path to the WCSim build directory to source inside the container (`<dir>/this_wcsim.sh`) and to load `libWCSimRoot.so` from for flattening. Default: `/opt/WCSim/build`. |
+| | `--mdtDir` | Path to an **already-built** MDT checkout to use instead of the container's `/opt/MDT` (its `envMDT.sh` is sourced before the MDT step). Default: the container's MDT. See [Using a custom WCSim / MDT build](#using-a-custom-wcsim--mdt-build). |
 | | `--condor` | Submit batch jobs to **HTCondor** (LXPLUS). Optional agrument: JobFlavour (default: tomorrow)|
 
 ### Examples
@@ -87,6 +88,37 @@ python3 runSimulation.py -m -n 1000 -f 50 -d def-myaccount
 ```bash 
 python3 runSimulation.py -p mu+ -b 200,0 -n 1000 -f 20 --condor
 ```
+
+**5. Use a custom WCSim and MDT build:**
+```bash
+python3 runSimulation.py -p mu- -b 100,30 -n 1000 -f 10 --condor \
+    -w /eos/home-a/acraplet/WCSim/WCSim_acraplet/build/install/bin \
+    --mdtDir /eos/user/a/acraplet/MDT
+```
+
+## Using a custom WCSim / MDT build
+
+By default every step runs the WCSim and MDT baked into the container. To run a modified version instead, build it once on a filesystem visible from inside the container (e.g. EOS), then point `runSimulation.py` at it with `-w` and `--mdtDir`.
+
+**How it works.** Each line of a generated `shell/run*.sh` is a separate `apptainer/singularity exec`, i.e. a fresh container: environment variables (`WCSIM_BUILD_DIR`, `MDTROOT`, `LD_LIBRARY_PATH`, ...) do not carry over from one step to the next, so every step re-sources `/opt/entrypoint.sh` and then `<wcsimBuildDir>/this_wcsim.sh`. With `--mdtDir`, the MDT step additionally runs `cd <mdtDir> && source ./envMDT.sh` (`envMDT.sh` sets `MDTROOT` from the current directory, and requires `WCSIM_BUILD_DIR`, hence the order). Nothing is compiled by the jobs: the build products (`cpp/libMDT.so`, `app/utilities/WCRootData/libWCRData.so`, `app/application/appWCTESingleEvent`) live on EOS and outlive the container that built them. The MDT parameter file is also taken from the custom checkout (`$MDTROOT/parameter/MDTParamenter_WCTE.txt`).
+
+**1. Build WCSim** (your fork) inside the container, installing it on EOS, so that `<install>/bin/this_wcsim.sh` exists and exports `WCSIM_BUILD_DIR`.
+
+**2. Build MDT** against it, inside the same container image, with `rebuild_and_source_mdt.sh` (must be *sourced*; the MDT checkout must be on branch `develop/wcte`, override its location with `MDT_DIR=...`):
+```bash
+apptainer exec -B /eos $SOFTWARE_SIF_FILE bash
+source /opt/entrypoint.sh
+source /eos/home-a/acraplet/WCSim/WCSim_acraplet/build/install/bin/this_wcsim.sh
+source /eos/home-a/acraplet/WCSim/MC_Production/rebuild_and_source_mdt.sh
+```
+
+**3. Run** `runSimulation.py` with `-w <install>/bin --mdtDir <MDT checkout>`. `runSimulation.py` warns if `<mdtDir>/app/application/appWCTESingleEvent` does not exist.
+
+**Caveats**
+- Build and run with the **same container image**: the binaries link against the container's ROOT and system libraries. Rebuild MDT after changing `SOFTWARE_SIF_FILE`.
+- **Rebuild MDT whenever the WCSim fork changes**: MDT links against `libWCSimRoot.so` from `$WCSIM_BUILD_DIR/lib`.
+- **Do not rebuild MDT while jobs using it are queued or running**: `rebuild_and_source_mdt.sh` runs `make clean`, deleting the libraries those jobs load. Use a separate (frozen) MDT checkout for production if you keep developing.
+- The build directories must be visible inside the container: `/eos` is bound automatically for HTCondor jobs (`APPTAINER_BINDPATH` in `template/run.sh`); for local runs add `-B /eos` if it is not bound by default.
 
 ## Web Application
 
@@ -167,6 +199,8 @@ singularity exec -B ./:/mnt $SOFTWARE_SIF_FILE root -l -b -q /mnt/validation/Ver
 - **`main.py`**: FastAPI application serving the web interface.
     - `submit_simulation`: Handles POST requests from the form, maps inputs to `SimulationConfig`, and triggers background job submission.
     - `get_job_status`: Queries the batch system status via `JobStatus`.
+
+- **`rebuild_and_source_mdt.sh`**: Rebuilds a custom MDT checkout against a custom WCSim inside the container and sources its environment (see [Using a custom WCSim / MDT build](#using-a-custom-wcsim--mdt-build)).
 
 - **`setup.sh`**: Bash script to export necessary environment variables (`SOFTWARE_SIF_FILE`, `SOFTWARE_SANDBOX_DIR`) and optionally build the Singularity sandbox.
 

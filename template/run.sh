@@ -13,7 +13,7 @@ ${runwcsim}$$EXE exec $userns -B $curdir:$mntdir $siffile bash -c 'source /opt/e
 ${runwcsim}$$EXE exec $userns -B $curdir:$mntdir $siffile bash -c 'source /opt/entrypoint.sh && source $sourcePath && root -l -b -q $mntdir/validation/RemoveInvalidFile.c\(\"$wcsimfile\",$nevs\) &>> $logfile'
 
 # run mdt
-${runmdt}$$EXE exec $userns -B $curdir:$mntdir $siffile bash -c 'source /opt/entrypoint.sh && source $sourcePath && $$MDTROOT/app/application/appWCTESingleEvent -i $wcsimfile -p $$MDTROOT/parameter/MDTParamenter_WCTE.txt -o $mdtfile -s $rngseed -n -1 &>> $logfile'
+${runmdt}$$EXE exec $userns -B $curdir:$mntdir $siffile bash -c 'source /opt/entrypoint.sh && source $sourcePath && ${sourceMDT}$$MDTROOT/app/application/appWCTESingleEvent -i $wcsimfile -p $$MDTROOT/parameter/MDTParamenter_WCTE.txt -o $mdtfile -s $rngseed -n -1 &>> $logfile'
 ${runmdt}$$EXE exec $userns -B $curdir:$mntdir $siffile bash -c 'source /opt/entrypoint.sh && source $sourcePath && root -l -b -q $mntdir/validation/RemoveInvalidFile.c\(\"$mdtfile\",$nevs\) &>> $logfile'
 
 # run flatten (raw WCSim output, isMDT=0 - it has definitely not been through MDT)

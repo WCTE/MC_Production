@@ -16,8 +16,8 @@
 #
 # Building directly on EOS is fine: EOS is a normal read-write mount inside
 # the container for ordinary file I/O - it's only a container-internal
-# WRITABLE-SANDBOX overlay that can't bind /eos reliably here (see
-# build_personnal_sandbox.sh's step 2 comment), and this script doesn't use
+# WRITABLE-SANDBOX overlay that can't bind /eos reliably here (this
+# apptainer has no overlay/underlay support), and this script doesn't use
 # one.
 
 # Where your MDT checkout lives - override by exporting MDT_DIR before
